@@ -85,6 +85,14 @@ export default function App() {
       ]);
 
       U(u);
+      if (requestedAdmin) {
+        if (u.is_admin === true) {
+          T("admin");
+        } else {
+          T("home");
+          N("У этого аккаунта нет доступа к админ-панели.");
+        }
+      }
       R(r);
       O(o);
       P(p);
@@ -113,6 +121,7 @@ export default function App() {
   }, []);
 
   const isAdmin = user?.is_admin === true;
+  const requestedAdmin = new URLSearchParams(window.location.search).get("view") === "admin";
 
   function updateSend(value: string) {
     A(value);
