@@ -67,7 +67,7 @@ export default function App() {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      throw new Error(data.detail || `Ошибка API: ${res.status}`);
+      throw new Error(data.detail || `Помилка API: ${res.status}`);
     }
 
     return data;
@@ -75,7 +75,7 @@ export default function App() {
 
   async function refresh() {
     if (!tg?.initData) {
-      N("Откройте приложение через Telegram-бота для авторизации.");
+      N("Відкрийте застосунок через Telegram-бота для авторизації.");
       return;
     }
 
@@ -95,7 +95,7 @@ export default function App() {
           T("admin");
         } else {
           T("home");
-          N("У этого аккаунта нет доступа к админ-панели.");
+          N("Цей акаунт не має доступу до панелі адміністратора.");
         }
       }
       R(r);
@@ -116,8 +116,8 @@ export default function App() {
         result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
       );
     } catch (e: any) {
-      setOrdersError(e.message || "Не удалось загрузить заявки");
-      N(e.message || "Не удалось загрузить данные");
+      setOrdersError(e.message || "Не вдалося завантажити заявки");
+      N(e.message || "Не вдалося завантажити дані");
     } finally {
       setOrdersLoading(false);
     }
@@ -202,12 +202,12 @@ export default function App() {
 
   async function submit() {
     if (!sendNumber || sendNumber <= 0) {
-      N("Введите корректную сумму");
+      N("Введіть коректну суму");
       return;
     }
 
     if (direction === "USDT_TO_UAH" && sendNumber < 10) {
-      N("Минимальная сумма — 10 USDT");
+      N("Мінімальна сума — 10 USDT");
       return;
     }
 
@@ -223,7 +223,7 @@ export default function App() {
         }),
       });
 
-      N("Заявка " + x.order_no + " создана. Менеджер свяжется с вами.");
+      N("Заявку " + x.order_no + " створено. Менеджер зв’яжеться з вами.");
       T("orders");
       await refresh();
     } catch (e: any) {
@@ -249,7 +249,7 @@ export default function App() {
       });
 
       await loadAdmin();
-      N("Статус заявки изменён");
+      N("Статус заявки змінено");
     } catch (e: any) {
       N(e.message);
     }
@@ -260,7 +260,7 @@ export default function App() {
     const b = Number(rb.replace(",", "."));
 
     if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) {
-      N("Введите корректные курсы");
+      N("Введіть коректні курси");
       return;
     }
 
@@ -299,7 +299,7 @@ export default function App() {
         result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
       );
 
-      N("Курсы успешно сохранены");
+      N("Курси успішно збережено");
     } catch (e: any) {
       N(e.message || "Не вдалося зберегти курси");
     } finally {
@@ -309,7 +309,7 @@ export default function App() {
 
   async function addPromo() {
     if (!pt.trim() || !pd.trim()) {
-      N("Заполните название и описание акции");
+      N("Заповніть назву та опис акції");
       return;
     }
 
@@ -326,7 +326,7 @@ export default function App() {
       PD("");
 
       P(await api("/api/promotions"));
-      N("Акция добавлена");
+      N("Акцію додано");
     } catch (e: any) {
       N(e.message);
     }
@@ -335,9 +335,9 @@ export default function App() {
   const statusClass = (s: string) =>
     s === "Завершена"
       ? "done"
-      : s === "Отменена"
+      : s === "Скасована"
       ? "cancel"
-      : s === "В обработке"
+      : s === "В обробці"
       ? "work"
       : "new";
 
@@ -352,10 +352,10 @@ export default function App() {
           <b>
             SOYER <i>EXCHANGE</i>
           </b>
-          <small>EXCHANGE SERVICE</small>
+          <small>СЕРВІС ОБМІНУ</small>
         </div>
 
-        <span className="online">● ONLINE</span>
+        <span className="online">● ОНЛАЙН</span>
       </header>
 
       {notice && (
@@ -367,16 +367,16 @@ export default function App() {
       {tab === "home" && (
         <main>
           <section className="hero">
-            <small>ПРОСТО • ПОНЯТНО • УДОБНО</small>
+            <small>ПРОСТО • ЗРОЗУМІЛО • ЗРУЧНО</small>
 
             <h1>
-              Обмен
+              Обмін
               <br />
-              <em>без лишнего.</em>
+              <em>без зайвого.</em>
             </h1>
 
             <p>
-              Оставьте заявку — менеджер уточнит детали и подтвердит условия.
+              Залиште заявку — менеджер уточнить деталі та підтвердить умови.
             </p>
 
             <div className="rates">
@@ -393,7 +393,7 @@ export default function App() {
 
             <small className="hint">
               <ShieldCheck size={14} />
-              Курс ориентировочный · минимум 10 USDT
+              Курс орієнтовний · мінімум 10 USDT
             </small>
           </section>
 
@@ -401,13 +401,13 @@ export default function App() {
             <div className="section">
               <div>
                 <small>КАЛЬКУЛЯТОР</small>
-                <h2>Рассчитать обмен</h2>
+                <h2>Розрахувати обмін</h2>
               </div>
 
-              <span className="pill">LIVE RATE</span>
+              <span className="pill">АКТУАЛЬНИЙ КУРС</span>
             </div>
 
-            <label>Направление</label>
+            <label>Напрямок</label>
 
             <div className="switch">
               <button
@@ -457,11 +457,11 @@ export default function App() {
               </div>
             </div>
 
-            <label>Контакт для связи (необязательно)</label>
+            <label>Контакт для зв’язку (необов’язково)</label>
 
             <input
               className="text"
-              placeholder="@username или телефон"
+              placeholder="@username або телефон"
               value={contact}
               onChange={(e) => C(e.target.value)}
             />
@@ -471,12 +471,12 @@ export default function App() {
               disabled={busy}
               onClick={submit}
             >
-              {busy ? "Отправка…" : "Создать заявку"}
+              {busy ? "Надсилання…" : "Створити заявку"}
               <ArrowRight size={17} />
             </button>
 
             <p className="disclaimer">
-              Заявка не является сделкой. Не отправляйте средства до
+              Заявку не является сделкой. Не отправляйте средства до
               подтверждения условий менеджером.
             </p>
           </section>
@@ -484,14 +484,14 @@ export default function App() {
           <div className="features">
             <div>
               <ShieldCheck />
-              <b>Ручное подтверждение</b>
-              <small>Условия согласуются с менеджером</small>
+              <b>Ручне підтвердження</b>
+              <small>Умови погоджуються з менеджером</small>
             </div>
 
             <div>
               <Clock3 />
               <b>Статус заявки</b>
-              <small>Уведомления в Telegram</small>
+              <small>Сповіщення в Telegram</small>
             </div>
 
             <div>
@@ -506,8 +506,8 @@ export default function App() {
       {tab === "orders" && (
         <main>
           <div className="title">
-            <small>ВАША АКТИВНОСТЬ</small>
-            <h1>Мои заявки</h1>
+            <small>ВАША АКТИВНІСТЬ</small>
+            <h1>Мої заявки</h1>
           </div>
 
           {ordersLoading ? (
@@ -524,7 +524,7 @@ export default function App() {
                 <div className="orderhead">
                   <b>{o.number}</b>
                   <span className={statusClass(o.status)}>
-                    {o.status}
+                    {statusLabel(o.status)}
                   </span>
                 </div>
 
@@ -541,10 +541,10 @@ export default function App() {
           ) : (
             <div className="empty">
               <History />
-              <b>Заявок пока нет</b>
+              <b>Заявок поки немає</b>
 
               <button className="primary" onClick={() => T("home")}>
-                Перейти к обмену
+                Перейти до обміну
               </button>
             </div>
           )}
@@ -554,7 +554,7 @@ export default function App() {
       {tab === "promos" && (
         <main>
           <div className="title">
-            <small>ПРЕДЛОЖЕНИЯ</small>
+            <small>ПРОПОЗИЦІЇ</small>
             <h1>Акции</h1>
           </div>
 
@@ -569,7 +569,7 @@ export default function App() {
           ) : (
             <div className="empty">
               <Gift />
-              <b>Активных акций пока нет</b>
+              <b>Активних акцій поки немає</b>
             </div>
           )}
         </main>
@@ -578,14 +578,14 @@ export default function App() {
       {tab === "profile" && (
         <main>
           <div className="title">
-            <small>ЛИЧНЫЙ КАБИНЕТ</small>
-            <h1>Профиль</h1>
+            <small>ОСОБИСТИЙ КАБІНЕТ</small>
+            <h1>Профіль</h1>
           </div>
 
           <section className="panel profile">
             <UserRound size={40} />
 
-            <h2>{user?.name || "Пользователь Telegram"}</h2>
+            <h2>{user?.name || "Користувач Telegram"}</h2>
 
             <p>@{user?.username || "telegram"}</p>
 
@@ -597,7 +597,7 @@ export default function App() {
                 window.open("https://t.me/soyermanager", "_blank")
               }
             >
-              Связаться с менеджером
+              Зв’язатися з менеджером
             </button>
           </section>
 
@@ -610,13 +610,13 @@ export default function App() {
               }}
             >
               <ShieldCheck size={18} />
-              Админ-панель
+              Панель адміністратора
             </button>
           )}
 
           <button className="outline" onClick={refresh}>
             <RefreshCw size={16} />
-            Обновить данные
+            Оновити дані
           </button>
         </main>
       )}
@@ -624,12 +624,12 @@ export default function App() {
       {tab === "admin" && isAdmin && (
         <main>
           <div className="title">
-            <small>УПРАВЛЕНИЕ</small>
-            <h1>Админ-панель</h1>
+            <small>КЕРУВАННЯ</small>
+            <h1>Панель адміністратора</h1>
           </div>
 
           <section className="panel">
-            <h2>Курсы обмена</h2>
+            <h2>Курси обміну</h2>
 
             <label>USDT → UAH</label>
 
@@ -650,38 +650,38 @@ export default function App() {
             />
 
             <button className="primary" onClick={saveRates} disabled={ratesSaving}>
-              {ratesSaving ? "Сохранение…" : "Сохранить курсы"}
+              {ratesSaving ? "Збереження…" : "Зберегти курси"}
             </button>
           </section>
 
           <section className="panel">
-            <h2>Добавить акцию</h2>
+            <h2>Додати акцію</h2>
 
             <input
               className="text"
-              placeholder="Название"
+              placeholder="Назва"
               value={pt}
               onChange={(e) => PT(e.target.value)}
             />
 
             <textarea
               className="text"
-              placeholder="Описание"
+              placeholder="Опис"
               value={pd}
               onChange={(e) => PD(e.target.value)}
             />
 
             <button className="primary" onClick={addPromo}>
-              Добавить акцию
+              Додати акцію
             </button>
           </section>
 
           <section>
-            <h2>Заявки пользователей</h2>
+            <h2>Заявки користувачів</h2>
 
             <button className="outline" onClick={loadAdmin}>
               <RefreshCw size={15} />
-              Обновить
+              Оновити
             </button>
 
             {adminOrders.length ? (
@@ -699,31 +699,31 @@ export default function App() {
                   </p>
 
                   <div className="customer-contact">
-                    <p><b>Клиент:</b> {o.customer_name || "Без имени"}</p>
+                    <p><b>Клієнт:</b> {o.customer_name || "Без імені"}</p>
                     <p><b>Telegram ID:</b> {o.user_id}</p>
                     {o.username ? (
                       <p><b>Telegram:</b> @{o.username}</p>
                     ) : null}
                     {o.contact ? (
-                      <p><b>Контакт из заявки:</b> {o.contact}</p>
+                      <p><b>Контакт із заявки:</b> {o.contact}</p>
                     ) : (
-                      <p><b>Контакт из заявки:</b> не указан</p>
+                      <p><b>Контакт із заявки:</b> не вказано</p>
                     )}
                     <div className="actions">
                       {o.username ? (
                         <button onClick={() => window.open("https://t.me/" + encodeURIComponent(o.username), "_blank")}>
-                          Открыть чат
+                          Відкрити чат
                         </button>
                       ) : (
                         <button onClick={() => navigator.clipboard?.writeText(String(o.user_id))}>
-                          Скопировать Telegram ID
+                          Скопіювати Telegram ID
                         </button>
                       )}
                     </div>
                   </div>
 
                   <div className="actions">
-                    {["В обработке", "Завершена", "Отменена"].map((s) => (
+                    {["В обробці", "Завершена", "Скасована"].map((s) => (
                       <button
                         key={s}
                         onClick={() => changeStatus(o.number, s)}
@@ -737,7 +737,7 @@ export default function App() {
             ) : (
               <div className="empty">
                 <History />
-                <b>Заявок пока нет</b>
+                <b>Заявок поки немає</b>
               </div>
             )}
           </section>
@@ -746,10 +746,10 @@ export default function App() {
 
       <nav>
         {[
-          ["home", "Главная", Home],
+          ["home", "Головна", Home],
           ["orders", "Заявки", History],
           ["promos", "Акции", Gift],
-          ["profile", "Профиль", UserRound],
+          ["profile", "Профіль", UserRound],
         ].map(([id, label, Icon]: any) => (
           <button
             className={tab === id ? "active" : ""}
