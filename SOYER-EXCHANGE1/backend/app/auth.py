@@ -7,7 +7,7 @@ def current_user(x_telegram_init_data:str=Header(default="")):
         if not BOT_TOKEN: raise ValueError()
         p=dict(parse_qsl(x_telegram_init_data,keep_blank_values=True)); received=p.pop("hash")
         if abs(time.time()-int(p["auth_date"]))>86400: raise ValueError()
-        check="\\n".join(f"{k}={v}" for k,v in sorted(p.items()))
+        check="\n".join(f"{k}={v}" for k,v in sorted(p.items()))
         secret=hmac.new(b"WebAppData",BOT_TOKEN.encode(),hashlib.sha256).digest()
         expected=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
         if not hmac.compare_digest(received,expected): raise ValueError()
