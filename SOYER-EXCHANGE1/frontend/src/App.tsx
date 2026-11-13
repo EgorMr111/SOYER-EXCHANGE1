@@ -481,8 +481,7 @@ export default function App() {
             </button>
 
             <p className="disclaimer">
-              Заявку не является сделкой. Не отправляйте средства до
-              подтверждения условий менеджером.
+              Заявка не є угодою. Не надсилайте кошти до підтвердження умов менеджером.
             </p>
           </section>
 
@@ -501,7 +500,7 @@ export default function App() {
 
             <div>
               <Headphones />
-              <b>Поддержка</b>
+              <b>Підтримка</b>
               <small>@soyermanager</small>
             </div>
           </div>
@@ -539,7 +538,7 @@ export default function App() {
                 </p>
 
                 <small>
-                  {new Date(o.created).toLocaleString()}
+                  {new Date(o.created).toLocaleString("uk-UA")}
                 </small>
               </article>
             ))
