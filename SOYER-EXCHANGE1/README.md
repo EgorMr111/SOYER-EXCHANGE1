@@ -53,8 +53,9 @@ npm run dev
 Root Directory: `backend`
 Build: `pip install -r requirements.txt`
 Start: `uvicorn app.api:app --host 0.0.0.0 --port $PORT`
-Добавьте Persistent Disk с mount path `/var/data`, затем переменные:
-- `DATABASE_PATH=/var/data/soyer.sqlite3`
+
+Для Render Free используйте Supabase PostgreSQL: SQLite на файловой системе Render Free теряет данные при spin-down/restart. В Supabase откройте Connect и скопируйте строку подключения PostgreSQL (предпочтительно Session pooler, если Direct connection недоступен из вашей сети). В Render → Backend → Environment добавьте:
+- `DATABASE_URL` — полная строка подключения Supabase PostgreSQL; добавьте `?sslmode=require`, если параметр отсутствует.
 - `BOT_TOKEN` (секрет)
 - `ADMIN_IDS=123456789,987654321`
 - `WEBAPP_URL=https://ВАШ-FRONTEND.onrender.com`
