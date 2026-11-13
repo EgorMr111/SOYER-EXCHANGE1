@@ -46,6 +46,12 @@ async def lifespan(app: FastAPI):
     global bot, dp
 
     db.init()
+    try:
+        from .config import DATABASE_PATH
+        logger.info("Database initialized at %s", DATABASE_PATH)
+        logger.info("Database currently contains %s orders", len(db.all_orders()))
+    except Exception:
+        logger.exception("Database startup diagnostics failed")
 
     if BOT_TOKEN:
         if not PUBLIC_BACKEND_URL.startswith("https://"):
@@ -384,7 +390,13 @@ async def change_order_status(
             "Заявка не найдена"
         )
 
-    db.status(number, x.status)
+    try:
+        updated_order = db.status(number, x.status)
+    except LookupError:
+        raise HTTPException(404, "Заявка не знайдена")
+    except Exception:
+        logger.exception("Failed to persist order status for %s", number)
+        raise HTTPException(500, "Не вдалося зберегти статус заявки")
 
     if BOT_TOKEN:
         notification_bot = Bot(BOT_TOKEN)
@@ -405,7 +417,8 @@ async def change_order_status(
     return {
         "ok": True,
         "number": number,
-        "status": x.status
+        "status": updated_order["status"],
+        "updated": updated_order["updated"]
     }
 
 
