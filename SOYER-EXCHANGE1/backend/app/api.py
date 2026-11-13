@@ -54,7 +54,6 @@ async def lifespan(app: FastAPI):
             bot = Bot(BOT_TOKEN)
             dp = Dispatcher()
 
-            # START COMMAND
             @dp.message(CommandStart())
             async def start(message: Message):
                 if not WEBAPP_URL.startswith("https://"):
@@ -74,13 +73,12 @@ async def lifespan(app: FastAPI):
 
                 await message.answer(
                     "👋 Добро пожаловать в SOYER EXCHANGE!\n\n"
-                    "💱 Обменивайте USDT и UAH.\n"
-                    "📋 Создавайте заявки.\n"
-                    "🤝 Наш менеджер поможет провести обмен.",
+                    "💱 Обмен USDT и UAH\n"
+                    "📋 Создание заявок\n"
+                    "🤝 Поддержка менеджера",
                     reply_markup=keyboard
                 )
 
-            # HELP COMMAND
             @dp.message(Command("help"))
             async def help_command(message: Message):
                 await message.answer(
@@ -90,7 +88,6 @@ async def lifespan(app: FastAPI):
                     "/admin — админ-панель"
                 )
 
-            # ADMIN COMMAND
             @dp.message(Command("admin"))
             async def admin_command(message: Message):
                 if not message.from_user:
@@ -119,12 +116,10 @@ async def lifespan(app: FastAPI):
 
                 await message.answer(
                     "👑 SOYER EXCHANGE ADMIN\n\n"
-                    "✅ Доступ администратора подтверждён.\n"
-                    "Откройте панель управления:",
+                    "✅ Доступ администратора подтверждён.",
                     reply_markup=keyboard
                 )
 
-            # REGISTER WEBHOOK
             webhook_url = (
                 f"{PUBLIC_BACKEND_URL.rstrip('/')}/telegram/webhook"
             )
@@ -135,10 +130,7 @@ async def lifespan(app: FastAPI):
                 drop_pending_updates=True
             )
 
-            logger.info(
-                "SOYER EXCHANGE webhook registered: %s",
-                webhook_url
-            )
+            logger.info("Telegram webhook registered: %s", webhook_url)
 
     else:
         logger.warning("BOT_TOKEN is not configured")
@@ -154,6 +146,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="SOYER EXCHANGE API",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -165,14 +158,14 @@ app.add_middleware(
 )
 
 
+# =========================
 # TELEGRAM WEBHOOK
+# =========================
+
 @app.post("/telegram/webhook")
 async def telegram_webhook(request: Request):
     if not bot or not dp:
-        raise HTTPException(
-            status_code=503,
-            detail="Telegram bot is not configured"
-        )
+        raise HTTPException(503, "Telegram bot is not configured")
 
     if (
         WEBHOOK_SECRET
@@ -180,10 +173,7 @@ async def telegram_webhook(request: Request):
             "X-Telegram-Bot-Api-Secret-Token"
         ) != WEBHOOK_SECRET
     ):
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid webhook secret"
-        )
+        raise HTTPException(403, "Invalid webhook secret")
 
     try:
         data = await request.json()
@@ -196,22 +186,34 @@ async def telegram_webhook(request: Request):
         await dp.feed_update(bot, update)
 
     except Exception:
-        logger.exception("Failed to process Telegram webhook")
-        raise HTTPException(
-            status_code=500,
-            detail="Webhook processing failed"
-        )
+        logger.exception("Webhook processing failed")
+        raise HTTPException(500, "Webhook processing failed")
 
     return {"ok": True}
 
 
+# =========================
 # HEALTH
+# =========================
+
+@app.get("/")
+def root():
+    return {
+        "service": "SOYER EXCHANGE",
+        "status": "online",
+        "version": "2.0.0"
+    }
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
 
 
+# =========================
 # USER PROFILE
+# =========================
+
 @app.get("/api/me")
 def me(u=Depends(current_user)):
     db.save_user(u)
@@ -224,13 +226,19 @@ def me(u=Depends(current_user)):
     }
 
 
-# RATES
+# =========================
+# EXCHANGE RATES
+# =========================
+
 @app.get("/api/rates")
 def get_rates(u=Depends(current_user)):
     return db.rates()
 
 
+# =========================
 # CREATE ORDER
+# =========================
+
 class OrderIn(BaseModel):
     direction: str
     amount: float = Field(gt=0, le=10000000)
@@ -238,16 +246,20 @@ class OrderIn(BaseModel):
 
 
 @app.post("/api/orders")
-async def create(x: OrderIn, u=Depends(current_user)):
+async def create_order(
+    x: OrderIn,
+    u=Depends(current_user)
+):
     db.save_user(u)
 
     r = db.rates()
 
     if x.direction == "USDT_TO_UAH":
+
         if x.amount < 10:
             raise HTTPException(
-                status_code=400,
-                detail="Минимум 10 USDT"
+                400,
+                "Минимум 10 USDT"
             )
 
         rate = r["usdt_uah"]
@@ -255,17 +267,18 @@ async def create(x: OrderIn, u=Depends(current_user)):
         label = "USDT → UAH"
 
     elif x.direction == "UAH_TO_USDT":
+
         rate = r["uah_usdt"]
         received = round(x.amount / rate, 6)
         label = "UAH → USDT"
 
     else:
         raise HTTPException(
-            status_code=400,
-            detail="Неверное направление"
+            400,
+            "Неверное направление"
         )
 
-    o = db.make_order(
+    order = db.make_order(
         u["id"],
         label,
         x.amount,
@@ -278,59 +291,76 @@ async def create(x: OrderIn, u=Depends(current_user)):
         notification_bot = Bot(BOT_TOKEN)
 
         try:
-            for aid in ADMIN_IDS:
+            for admin_id in ADMIN_IDS:
                 try:
                     await notification_bot.send_message(
-                        aid,
-                        f"🆕 Новая заявка {o['number']}\n\n"
+                        admin_id,
+                        f"🆕 Новая заявка\n\n"
+                        f"Номер: {order['number']}\n"
                         f"Направление: {label}\n"
                         f"Сумма: {x.amount}\n"
-                        f"К получению: {received}\n"
+                        f"Получение: {received}\n"
                         f"Курс: {rate}\n"
-                        f"ID пользователя: {u['id']}"
+                        f"Telegram ID: {u['id']}"
                     )
                 except Exception:
                     logger.exception(
-                        "Failed to notify admin %s",
-                        aid
+                        "Admin notification failed: %s",
+                        admin_id
                     )
 
         finally:
             await notification_bot.session.close()
 
     return {
-        "order_no": o["number"],
-        "status": o["status"],
+        "order_no": order["number"],
+        "status": order["status"],
         "receive_amount": received
     }
 
 
+# =========================
 # USER ORDERS
+# =========================
+
 @app.get("/api/orders")
-def orders(u=Depends(current_user)):
+def get_my_orders(u=Depends(current_user)):
     return db.my_orders(u["id"])
 
 
+# =========================
 # PROMOTIONS
+# =========================
+
 @app.get("/api/promotions")
-def promotions(u=Depends(current_user)):
+def get_promotions(u=Depends(current_user)):
     return db.promos()
 
 
-# ADMIN ORDERS
+# =========================
+# ADMIN: ALL ORDERS
+# =========================
+
 @app.get("/api/admin/orders")
 def admin_orders(u=Depends(current_user)):
     admin(u)
     return db.all_orders()
 
 
-# CHANGE ORDER STATUS
+# =========================
+# ADMIN: CHANGE ORDER STATUS
+# =========================
+
 class StatusIn(BaseModel):
     status: str
 
 
 @app.patch("/api/admin/orders/{number}")
-async def change(number: str, x: StatusIn, u=Depends(current_user)):
+async def change_order_status(
+    number: str,
+    x: StatusIn,
+    u=Depends(current_user)
+):
     admin(u)
 
     allowed_statuses = [
@@ -341,16 +371,16 @@ async def change(number: str, x: StatusIn, u=Depends(current_user)):
 
     if x.status not in allowed_statuses:
         raise HTTPException(
-            status_code=400,
-            detail="Статус не разрешён"
+            400,
+            "Недопустимый статус"
         )
 
-    o = db.get_order(number)
+    order = db.get_order(number)
 
-    if not o:
+    if not order:
         raise HTTPException(
-            status_code=404,
-            detail="Заявка не найдена"
+            404,
+            "Заявка не найдена"
         )
 
     db.status(number, x.status)
@@ -360,25 +390,38 @@ async def change(number: str, x: StatusIn, u=Depends(current_user)):
 
         try:
             await notification_bot.send_message(
-                o["user_id"],
-                f"🔔 Статус вашей заявки {number}: {x.status}"
+                order["user_id"],
+                f"🔔 Обновление заявки {number}\n\n"
+                f"Новый статус: {x.status}"
             )
+
         except Exception:
-            logger.exception("Failed to notify user")
+            logger.exception("User notification failed")
+
         finally:
             await notification_bot.session.close()
 
-    return {"ok": True}
+    return {
+        "ok": True,
+        "number": number,
+        "status": x.status
+    }
 
 
-# CHANGE RATES
+# =========================
+# ADMIN: CHANGE RATES
+# =========================
+
 class RatesIn(BaseModel):
     usdt_uah: float = Field(gt=0, lt=100000)
     uah_usdt: float = Field(gt=0, lt=100000)
 
 
 @app.put("/api/admin/rates")
-def change_rates(x: RatesIn, u=Depends(current_user)):
+def change_rates(
+    x: RatesIn,
+    u=Depends(current_user)
+):
     admin(u)
 
     db.set_rates(
@@ -386,17 +429,29 @@ def change_rates(x: RatesIn, u=Depends(current_user)):
         x.uah_usdt
     )
 
+    logger.info(
+        "Rates changed: USDT/UAH=%s, UAH/USDT=%s",
+        x.usdt_uah,
+        x.uah_usdt
+    )
+
     return db.rates()
 
 
-# ADD PROMOTION
+# =========================
+# ADMIN: ADD PROMOTION
+# =========================
+
 class PromoIn(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     description: str = Field(min_length=1, max_length=1000)
 
 
 @app.post("/api/admin/promotions")
-def new_promo(x: PromoIn, u=Depends(current_user)):
+def add_promotion(
+    x: PromoIn,
+    u=Depends(current_user)
+):
     admin(u)
 
     db.add_promo(
@@ -404,4 +459,7 @@ def new_promo(x: PromoIn, u=Depends(current_user)):
         x.description
     )
 
-    return {"ok": True}
+    return {
+        "ok": True,
+        "message": "Акция добавлена"
+    }
