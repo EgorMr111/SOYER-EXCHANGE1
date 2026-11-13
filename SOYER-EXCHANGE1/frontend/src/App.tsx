@@ -31,6 +31,8 @@ export default function App() {
   });
 
   const [orders, O] = useState<any[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
   const [promos, P] = useState<any[]>([]);
 
   const [direction, D] = useState("USDT_TO_UAH");
@@ -78,6 +80,8 @@ export default function App() {
     }
 
     try {
+      setOrdersLoading(true);
+      setOrdersError("");
       const [u, r, o, p] = await Promise.all([
         api("/api/me"),
         api("/api/rates"),
@@ -96,6 +100,7 @@ export default function App() {
       }
       R(r);
       O(o);
+      setOrdersError("");
       P(p);
 
       RA(String(r.usdt_uah));
@@ -111,7 +116,10 @@ export default function App() {
         result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
       );
     } catch (e: any) {
+      setOrdersError(e.message || "Не удалось загрузить заявки");
       N(e.message || "Не удалось загрузить данные");
+    } finally {
+      setOrdersLoading(false);
     }
   }
 
@@ -502,7 +510,15 @@ export default function App() {
             <h1>Мои заявки</h1>
           </div>
 
-          {orders.length ? (
+          {ordersLoading ? (
+            <div className="empty"><RefreshCw /><b>Завантаження заявок…</b></div>
+          ) : ordersError ? (
+            <div className="empty">
+              <b>Не вдалося завантажити заявки</b>
+              <p>{ordersError}</p>
+              <button className="primary" onClick={refresh}>Спробувати ще раз</button>
+            </div>
+          ) : orders.length ? (
             orders.map((o) => (
               <article className="order" key={o.number}>
                 <div className="orderhead">
