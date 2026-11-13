@@ -1,6 +1,7 @@
 
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +26,7 @@ from .config import (
     ADMIN_IDS,
     PUBLIC_BACKEND_URL,
     WEBHOOK_SECRET,
+    DATABASE_URL,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +34,30 @@ logger = logging.getLogger("soyer")
 
 bot = None
 dp = None
+webhook_task = None
+
+
+async def register_webhook_with_retry(bot_instance, webhook_url):
+    """Keep the API alive while retrying temporary Telegram outages."""
+    delay = 5
+    while True:
+        try:
+            await bot_instance.set_webhook(
+                url=webhook_url,
+                secret_token=WEBHOOK_SECRET or None,
+                drop_pending_updates=False
+            )
+            logger.info("Telegram webhook registered: %s", webhook_url)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                "Telegram webhook registration failed; retrying in %s seconds",
+                delay
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 60)
 
 
 def is_admin(user_id):
@@ -43,12 +69,18 @@ def is_admin(user_id):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global bot, dp
+    global bot, dp, webhook_task
 
     db.init()
     try:
         from .config import DATABASE_PATH
-        logger.info("Database initialized at %s", DATABASE_PATH)
+        logger.info(
+            "Database backend: %s",
+            "Supabase PostgreSQL" if DATABASE_URL else "SQLite (DATABASE_URL is empty)"
+        )
+        if not DATABASE_URL:
+            logger.warning("DATABASE_URL is not configured; data will use local SQLite storage")
+        logger.info("Database path setting: %s", DATABASE_PATH)
         logger.info("Database currently contains %s orders", len(db.all_orders()))
     except Exception:
         logger.exception("Database startup diagnostics failed")
@@ -131,13 +163,11 @@ async def lifespan(app: FastAPI):
                 f"{PUBLIC_BACKEND_URL.rstrip('/')}/telegram/webhook"
             )
 
-            await bot.set_webhook(
-                url=webhook_url,
-                secret_token=WEBHOOK_SECRET or None,
-                drop_pending_updates=False
+            # Telegram can temporarily return 502/Bad Gateway. Do not let a
+            # temporary Telegram outage crash the entire FastAPI service.
+            webhook_task = asyncio.create_task(
+                register_webhook_with_retry(bot, webhook_url)
             )
-
-            logger.info("Telegram webhook registered: %s", webhook_url)
 
     else:
         logger.warning("BOT_TOKEN is not configured")
@@ -145,6 +175,11 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        if webhook_task:
+            webhook_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await webhook_task
+            webhook_task = None
         if bot:
             await bot.session.close()
             bot = None
