@@ -5,7 +5,12 @@ from .config import DATABASE_PATH
 def now(): return datetime.now(timezone.utc).isoformat()
 def conn():
     Path(DATABASE_PATH).parent.mkdir(parents=True,exist_ok=True)
-    c=sqlite3.connect(DATABASE_PATH); c.row_factory=sqlite3.Row; return c
+    c = sqlite3.connect(DATABASE_PATH, timeout=15)
+    c.row_factory = sqlite3.Row
+    c.execute("PRAGMA busy_timeout=15000")
+    c.execute("PRAGMA journal_mode=WAL")
+    c.execute("PRAGMA synchronous=FULL")
+    return c
 def init():
     with conn() as d:
         d.executescript("""
@@ -75,8 +80,19 @@ def get_order(n):
     with conn() as d:
         x=d.execute("SELECT * FROM orders WHERE number=?",(n,)).fetchone()
         return dict(x) if x else None
-def status(n,s):
-    with conn() as d: return d.execute("UPDATE orders SET status=?,updated=? WHERE number=?",(s,now(),n)).rowcount
+def status(n, s):
+    with conn() as d:
+        cur = d.execute(
+            "UPDATE orders SET status=?, updated=? WHERE number=?",
+            (s, now(), n)
+        )
+        if cur.rowcount != 1:
+            raise LookupError(f"Order {n} was not found while updating status")
+        row = d.execute(
+            "SELECT * FROM orders WHERE number=?",
+            (n,)
+        ).fetchone()
+        return dict(row)
 def promos():
     with conn() as d: return [dict(x) for x in d.execute("SELECT * FROM promotions WHERE active=1 ORDER BY id DESC")]
 def add_promo(t,x):
