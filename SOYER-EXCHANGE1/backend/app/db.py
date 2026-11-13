@@ -21,9 +21,40 @@ def save_user(u):
     with conn() as d:
         d.execute("INSERT INTO users VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET username=excluded.username,name=excluded.name",(u["id"],u.get("username",""),u.get("first_name",""),now()))
 def rates():
-    with conn() as d: return dict(d.execute("SELECT usdt_uah, uah_usdt, updated FROM exchange_rates WHERE id=1").fetchone())
-def set_rates(a,b):
-    with conn() as d: d.execute("UPDATE exchange_rates SET usdt_uah=?,uah_usdt=?,updated=? WHERE id=1",(a,b,now()))
+    with conn() as d:
+        row = d.execute(
+            "SELECT usdt_uah, uah_usdt, updated FROM exchange_rates WHERE id=1"
+        ).fetchone()
+        if row is None:
+            d.execute(
+                "INSERT INTO exchange_rates(id, usdt_uah, uah_usdt, updated) VALUES(1,46.60,47.70,?)",
+                (now(),)
+            )
+            row = d.execute(
+                "SELECT usdt_uah, uah_usdt, updated FROM exchange_rates WHERE id=1"
+            ).fetchone()
+        return dict(row)
+
+def set_rates(a, b):
+    # UPSERT prevents a silent no-op if the settings row is missing.
+    with conn() as d:
+        d.execute(
+            """
+            INSERT INTO exchange_rates(id, usdt_uah, uah_usdt, updated)
+            VALUES(1, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                usdt_uah=excluded.usdt_uah,
+                uah_usdt=excluded.uah_usdt,
+                updated=excluded.updated
+            """,
+            (float(a), float(b), now())
+        )
+        row = d.execute(
+            "SELECT usdt_uah, uah_usdt, updated FROM exchange_rates WHERE id=1"
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("Exchange rates were not persisted")
+        return dict(row)
 def make_order(uid,direction,amount,received,rate,contact):
     with conn() as d:
         cur=d.execute("INSERT INTO orders(number,user_id,direction,amount,received,rate,contact,status,created,updated) VALUES('pending',?,?,?,?,?,?, 'Новая',?,?)",(uid,direction,amount,received,rate,contact,now(),now()))
