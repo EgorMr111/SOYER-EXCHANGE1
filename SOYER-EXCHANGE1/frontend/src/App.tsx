@@ -332,12 +332,17 @@ export default function App() {
     }
   }
 
+  const statusLabel = (s: string) =>
+    s === "В обработке" ? "В обробці" :
+    s === "Отменена" ? "Скасована" :
+    s === "Завершена" ? "Завершена" : "Нова";
+
   const statusClass = (s: string) =>
     s === "Завершена"
       ? "done"
-      : s === "Скасована"
+      : s === "Отменена"
       ? "cancel"
-      : s === "В обробці"
+      : s === "В обработке"
       ? "work"
       : "new";
 
@@ -555,7 +560,7 @@ export default function App() {
         <main>
           <div className="title">
             <small>ПРОПОЗИЦІЇ</small>
-            <h1>Акции</h1>
+            <h1>Акції</h1>
           </div>
 
           {promos.length ? (
@@ -723,12 +728,16 @@ export default function App() {
                   </div>
 
                   <div className="actions">
-                    {["В обробці", "Завершена", "Скасована"].map((s) => (
+                    {[
+                      ["В обработке", "В обробці"],
+                      ["Завершена", "Завершена"],
+                      ["Отменена", "Скасована"],
+                    ].map(([status, label]) => (
                       <button
-                        key={s}
-                        onClick={() => changeStatus(o.number, s)}
+                        key={status}
+                        onClick={() => changeStatus(o.number, status)}
                       >
-                        {s}
+                        {label}
                       </button>
                     ))}
                   </div>
@@ -748,7 +757,7 @@ export default function App() {
         {[
           ["home", "Головна", Home],
           ["orders", "Заявки", History],
-          ["promos", "Акции", Gift],
+          ["promos", "Акції", Gift],
           ["profile", "Профіль", UserRound],
         ].map(([id, label, Icon]: any) => (
           <button
