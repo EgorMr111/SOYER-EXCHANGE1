@@ -56,6 +56,7 @@ async def lifespan(app: FastAPI):
 
             @dp.message(CommandStart())
             async def start(message: Message):
+                logger.info("Received /start from Telegram user %s", message.from_user.id if message.from_user else "unknown")
                 if not WEBAPP_URL.startswith("https://"):
                     await message.answer(
                         "SOYER EXCHANGE временно настраивается."
@@ -127,7 +128,7 @@ async def lifespan(app: FastAPI):
             await bot.set_webhook(
                 url=webhook_url,
                 secret_token=WEBHOOK_SECRET or None,
-                drop_pending_updates=True
+                drop_pending_updates=False
             )
 
             logger.info("Telegram webhook registered: %s", webhook_url)
