@@ -260,7 +260,7 @@ export default function App() {
 
     setRatesSaving(true);
     try {
-      const updated = await api("/api/admin/rates", {
+      await api("/api/admin/rates", {
         method: "PUT",
         body: JSON.stringify({
           usdt_uah: a,
