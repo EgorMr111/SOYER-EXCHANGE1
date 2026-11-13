@@ -97,3 +97,9 @@ def promos():
     with conn() as d: return [dict(x) for x in d.execute("SELECT * FROM promotions WHERE active=1 ORDER BY id DESC")]
 def add_promo(t,x):
     with conn() as d: d.execute("INSERT INTO promotions(title,description) VALUES(?,?)",(t,x))
+
+
+# On Render, use Supabase PostgreSQL when DATABASE_URL is configured.
+from .config import DATABASE_URL
+if DATABASE_URL:
+    from .db_postgres import *  # noqa: F401,F403
