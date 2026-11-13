@@ -59,24 +59,24 @@ async def lifespan(app: FastAPI):
                 logger.info("Received /start from Telegram user %s", message.from_user.id if message.from_user else "unknown")
                 if not WEBAPP_URL.startswith("https://"):
                     await message.answer(
-                        "SOYER EXCHANGE временно настраивается."
+                        "SOYER EXCHANGE тимчасово налаштовується."
                     )
                     return
 
                 keyboard = InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
-                            text="💱 Открыть SOYER EXCHANGE",
+                            text="💱 Відкрити SOYER EXCHANGE",
                             web_app=WebAppInfo(url=WEBAPP_URL)
                         )
                     ]]
                 )
 
                 await message.answer(
-                    "👋 Добро пожаловать в SOYER EXCHANGE!\n\n"
-                    "💱 Обмен USDT и UAH\n"
-                    "📋 Создание заявок\n"
-                    "🤝 Поддержка менеджера",
+                    "👋 Ласкаво просимо до SOYER EXCHANGE!\n\n"
+                    "💱 Обмін USDT та UAH\n"
+                    "📋 Створення заявок\n"
+                    "🤝 Підтримка менеджера",
                     reply_markup=keyboard
                 )
 
@@ -84,9 +84,9 @@ async def lifespan(app: FastAPI):
             async def help_command(message: Message):
                 await message.answer(
                     "SOYER EXCHANGE\n\n"
-                    "/start — открыть приложение\n"
-                    "/help — помощь\n"
-                    "/admin — админ-панель"
+                    "/start — відкрити застосунок\n"
+                    "/help — допомога\n"
+                    "/admin — панель адміністратора"
                 )
 
             @dp.message(Command("admin"))
@@ -96,28 +96,28 @@ async def lifespan(app: FastAPI):
 
                 if not is_admin(message.from_user.id):
                     await message.answer(
-                        "⛔ У вас нет доступа к админ-панели."
+                        "⛔ У вас немає доступу до панелі адміністратора."
                     )
                     return
 
                 if not WEBAPP_URL.startswith("https://"):
                     await message.answer(
-                        "⚠️ Mini App пока не настроен."
+                        "⚠️ Mini App ще не налаштовано."
                     )
                     return
 
                 keyboard = InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
-                            text="👑 Открыть админ-панель",
+                            text="👑 Відкрити панель адміністратора",
                             web_app=WebAppInfo(url=f"{WEBAPP_URL}{'&' if '?' in WEBAPP_URL else '?'}view=admin")
                         )
                     ]]
                 )
 
                 await message.answer(
-                    "👑 SOYER EXCHANGE ADMIN\n\n"
-                    "✅ Доступ администратора подтверждён.",
+                    "👑 АДМІНІСТРАТОР SOYER EXCHANGE\n\n"
+                    "✅ Доступ адміністратора підтверджено.",
                     reply_markup=keyboard
                 )
 
@@ -296,11 +296,11 @@ async def create_order(
                 try:
                     await notification_bot.send_message(
                         admin_id,
-                        f"🆕 Новая заявка\n\n"
+                        f"🆕 Нова заявка\n\n"
                         f"Номер: {order['number']}\n"
-                        f"Направление: {label}\n"
-                        f"Сумма: {x.amount}\n"
-                        f"Получение: {received}\n"
+                        f"Напрямок: {label}\n"
+                        f"Сума: {x.amount}\n"
+                        f"До отримання: {received}\n"
                         f"Курс: {rate}\n"
                         f"Telegram ID: {u['id']}"
                     )
@@ -392,8 +392,8 @@ async def change_order_status(
         try:
             await notification_bot.send_message(
                 order["user_id"],
-                f"🔔 Обновление заявки {number}\n\n"
-                f"Новый статус: {x.status}"
+                f"🔔 Оновлення заявки {number}\n\n"
+                f"Новий статус: { {'В обработке': 'В обробці', 'Завершена': 'Завершена', 'Отменена': 'Скасована'}.get(x.status, x.status) }"
             )
 
         except Exception:
