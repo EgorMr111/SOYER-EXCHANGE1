@@ -33,7 +33,13 @@ def make_order(uid,direction,amount,received,rate,contact):
 def my_orders(uid):
     with conn() as d: return [dict(x) for x in d.execute("SELECT * FROM orders WHERE user_id=? ORDER BY id DESC",(uid,))]
 def all_orders():
-    with conn() as d: return [dict(x) for x in d.execute("SELECT * FROM orders ORDER BY id DESC LIMIT 100")]
+    with conn() as d:
+        return [dict(x) for x in d.execute("""
+            SELECT orders.*, users.username AS username, users.name AS customer_name
+            FROM orders
+            LEFT JOIN users ON users.id = orders.user_id
+            ORDER BY orders.id DESC LIMIT 100
+        """)]
 def get_order(n):
     with conn() as d:
         x=d.execute("SELECT * FROM orders WHERE number=?",(n,)).fetchone()
