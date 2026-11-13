@@ -44,6 +44,9 @@ export default function App() {
   const [busy, B] = useState(false);
 
   const [adminOrders, AO] = useState<any[]>([]);
+  const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
+  const [adminOrdersError, setAdminOrdersError] = useState("");
+  const [updatingOrder, setUpdatingOrder] = useState("");
   const [ra, RA] = useState("46.60");
   const [rb, RB] = useState("47.70");
   const [ratesSaving, setRatesSaving] = useState(false);
@@ -102,6 +105,21 @@ export default function App() {
       O(o);
       setOrdersError("");
       P(p);
+
+      // The admin deep link must load the admin order list as soon as
+      // Telegram authentication confirms the account is an administrator.
+      if (requestedAdmin && u.is_admin === true) {
+        T("admin");
+        try {
+          setAdminOrdersLoading(true);
+          setAdminOrdersError("");
+          AO(await api("/api/admin/orders"));
+        } catch (adminError: any) {
+          setAdminOrdersError(adminError.message || "Не вдалося завантажити заявки");
+        } finally {
+          setAdminOrdersLoading(false);
+        }
+      }
 
       RA(String(r.usdt_uah));
       RB(String(r.uah_usdt));
@@ -234,24 +252,48 @@ export default function App() {
   }
 
   async function loadAdmin() {
+    setAdminOrdersLoading(true);
+    setAdminOrdersError("");
     try {
-      AO(await api("/api/admin/orders"));
+      const data = await api("/api/admin/orders");
+      AO(data);
+      return true;
     } catch (e: any) {
-      N(e.message);
+      setAdminOrdersError(e.message || "Не вдалося завантажити заявки");
+      return false;
+    } finally {
+      setAdminOrdersLoading(false);
     }
   }
 
   async function changeStatus(no: string, status: string) {
+    if (updatingOrder) return;
+    setUpdatingOrder(no);
     try {
-      await api("/api/admin/orders/" + no, {
+      const saved = await api("/api/admin/orders/" + encodeURIComponent(no), {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
 
-      await loadAdmin();
-      N("Статус заявки змінено");
+      // Update the visible row from the backend's confirmed response first.
+      AO((current) =>
+        current.map((order) =>
+          order.number === no
+            ? { ...order, status: saved.status, updated: saved.updated }
+            : order
+        )
+      );
+
+      const refreshed = await loadAdmin();
+      N(
+        refreshed
+          ? "Статус заявки змінено"
+          : "Статус збережено, але список не оновився. Натисніть «Оновити»."
+      );
     } catch (e: any) {
-      N(e.message);
+      N(e.message || "Не вдалося змінити статус заявки");
+    } finally {
+      setUpdatingOrder("");
     }
   }
 
@@ -688,7 +730,16 @@ export default function App() {
               Оновити
             </button>
 
-            {adminOrders.length ? (
+            {adminOrdersLoading ? (
+              <div className="empty"><RefreshCw /><b>Завантаження заявок…</b></div>
+            ) : adminOrdersError ? (
+              <div className="empty">
+                <b>Не вдалося завантажити заявки</b>
+                <p>{adminOrdersError}</p>
+                <button className="primary" onClick={loadAdmin}>Спробувати ще раз</button>
+                {adminOrders.length > 0 ? <p>Показано раніше завантажені заявки.</p> : null}
+              </div>
+            ) : adminOrders.length ? (
               adminOrders.map((o) => (
                 <article className="order" key={o.number}>
                   <div className="orderhead">
@@ -734,9 +785,10 @@ export default function App() {
                     ].map(([status, label]) => (
                       <button
                         key={status}
+                        disabled={updatingOrder === o.number}
                         onClick={() => changeStatus(o.number, status)}
                       >
-                        {label}
+                        {updatingOrder === o.number ? "Збереження…" : label}
                       </button>
                     ))}
                   </div>
