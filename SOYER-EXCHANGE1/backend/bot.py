@@ -8,7 +8,7 @@ async def main():
     bot=Bot(BOT_TOKEN); dp=Dispatcher()
     @dp.message(CommandStart())
     async def start(m:Message):
-        kb=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💱 Открыть приложение",web_app=WebAppInfo(url=WEBAPP_URL))]])
-        await m.answer("👋 Добро пожаловать в SOYER EXCHANGE!\nОткройте Mini App, чтобы рассчитать обмен и отправить заявку менеджеру.",reply_markup=kb)
+        kb=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💱 Відкрити застосунок",web_app=WebAppInfo(url=WEBAPP_URL))]])
+        await m.answer("👋 Ласкаво просимо до SOYER EXCHANGE!\nВідкрийте Mini App, щоб розрахувати обмін і надіслати заявку менеджеру.",reply_markup=kb)
     await dp.start_polling(bot)
 if __name__=="__main__": asyncio.run(main())
