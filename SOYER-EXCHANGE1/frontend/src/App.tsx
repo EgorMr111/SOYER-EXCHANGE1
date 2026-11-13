@@ -664,7 +664,29 @@ export default function App() {
                     {o.direction} · {o.amount} → {o.received}
                   </p>
 
-                  <small>Telegram ID: {o.user_id}</small>
+                  <div className="customer-contact">
+                    <p><b>Клиент:</b> {o.customer_name || "Без имени"}</p>
+                    <p><b>Telegram ID:</b> {o.user_id}</p>
+                    {o.username ? (
+                      <p><b>Telegram:</b> @{o.username}</p>
+                    ) : null}
+                    {o.contact ? (
+                      <p><b>Контакт из заявки:</b> {o.contact}</p>
+                    ) : (
+                      <p><b>Контакт из заявки:</b> не указан</p>
+                    )}
+                    <div className="actions">
+                      {o.username ? (
+                        <button onClick={() => window.open("https://t.me/" + encodeURIComponent(o.username), "_blank")}>
+                          Открыть чат
+                        </button>
+                      ) : (
+                        <button onClick={() => navigator.clipboard?.writeText(String(o.user_id))}>
+                          Скопировать Telegram ID
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
                   <div className="actions">
                     {["В обработке", "Завершена", "Отменена"].map((s) => (
