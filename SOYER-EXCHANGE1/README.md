@@ -1,79 +1,61 @@
 # SOYER EXCHANGE — Telegram Mini App
 
-React + TypeScript frontend, FastAPI backend, aiogram 3 bot, SQLite database.
+React + TypeScript frontend, FastAPI backend, aiogram 3 Telegram webhook, SQLite or Supabase PostgreSQL.
 
-## Реализовано
-- Telegram Mini App с тёмно-зелёным адаптивным интерфейсом.
-- Серверная проверка Telegram initData (HMAC).
-- Калькулятор USDT → UAH и UAH → USDT.
-- Минимум 10 USDT для направления USDT → UAH.
-- Заявки с уникальными номерами и историей.
-- Админ API: смена статуса, курсы, акции.
-- Telegram-уведомления администратору о новой заявке и пользователю о смене статуса.
-- SQLite: users, orders, exchange_rates, promotions, referrals, settings.
-- Бот `/start` с кнопкой открытия Mini App.
+## Production architecture
 
-Важно: приложение принимает запросы для ручного подтверждения менеджером. Оно не принимает средства, не хранит криптовалюту и не выполняет автоматические переводы.
+The Telegram bot runs inside the FastAPI service using a webhook. Do not run a second polling process: polling and webhook delivery conflict. Running python bot.py now starts the same webhook-enabled FastAPI application.
 
-## Локальный запуск — Windows PowerShell
+## Render configuration
 
-### Backend
-```powershell
-cd .\backend
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-```
-Заполните `backend/.env`: BOT_TOKEN, ADMIN_IDS, WEBAPP_URL (публичный HTTPS URL Mini App), CORS_ORIGINS.
-```powershell
-uvicorn app.api:app --reload --host 0.0.0.0 --port 8000
-```
-В другом окне:
-```powershell
-cd .\backend
-.\.venv\Scripts\Activate.ps1
-python bot.py
-```
+The repository has an extra top-level folder. Use these exact paths:
 
-### Frontend
-```powershell
-cd .\frontend
-Copy-Item .env.example .env
-npm install
-```
-В `frontend/.env` укажите `VITE_API_URL` и `VITE_ADMIN_IDS`.
-```powershell
-npm run dev
-```
-Для авторизованной работы откройте приложение из Telegram, не напрямую в браузере.
-
-## Render
 ### Backend Web Service
-Root Directory: `backend`
-Build: `pip install -r requirements.txt`
-Start: `uvicorn app.api:app --host 0.0.0.0 --port $PORT`
+- Root Directory: SOYER-EXCHANGE1/backend
+- Build Command: pip install -r requirements.txt
+- Start Command: uvicorn app.api:app --host 0.0.0.0 --port $PORT
 
-Для Render Free используйте Supabase PostgreSQL: SQLite на файловой системе Render Free теряет данные при spin-down/restart. В Supabase откройте Connect и скопируйте строку подключения PostgreSQL (предпочтительно Session pooler, если Direct connection недоступен из вашей сети). В Render → Backend → Environment добавьте:
-- `DATABASE_URL` — полная строка подключения Supabase PostgreSQL; добавьте `?sslmode=require`, если параметр отсутствует.
-- `BOT_TOKEN` (секрет)
-- `ADMIN_IDS=123456789,987654321`
-- `WEBAPP_URL=https://ВАШ-FRONTEND.onrender.com`
-- `CORS_ORIGINS=https://ВАШ-FRONTEND.onrender.com`
+Required Environment Variables:
+- BOT_TOKEN — current Telegram bot token (keep secret)
+- ADMIN_IDS — comma-separated numeric Telegram user IDs
+- WEBAPP_URL — exact public HTTPS URL of the frontend
+- PUBLIC_BACKEND_URL — exact public HTTPS URL of this backend
+- WEBHOOK_SECRET — optional Telegram webhook secret (1–256 chars, letters/numbers/_/-)
+- DATABASE_URL — Supabase PostgreSQL connection string; use SSL (sslmode=require)
+- CORS_ORIGINS — exact frontend origin, without a trailing slash
 
 ### Frontend Static Site
-Root Directory: `frontend`
-Build: `npm install && npm run build`
-Publish directory: `dist`
-Environment:
-- `VITE_API_URL=https://ВАШ-BACKEND.onrender.com`
-- `VITE_ADMIN_IDS=123456789,987654321`
+- Root Directory: SOYER-EXCHANGE1/frontend
+- Build Command: npm install && npm run build
+- Publish Directory: dist
+- VITE_API_URL — exact public HTTPS backend URL
+- VITE_ADMIN_IDS — comma-separated numeric Telegram user IDs
 
-После деплоя задайте точный HTTPS frontend URL в backend `WEBAPP_URL` и `CORS_ORIGINS`, перезапустите backend и запустите бота.
+After changing environment variables, save and redeploy the backend. On startup it initializes the database and registers /telegram/webhook with Telegram.
 
-## Безопасность
-- Не публикуйте токен; если он раскрывался, отзовите его через BotFather.
-- Не добавляйте `.env` в Git.
-- Для сохранения SQLite на Render необходим Persistent Disk.
-- Не запрашивайте seed phrase, private key, пароль или коды подтверждения.
-- Перед запуском финансового сервиса получите юридическую и комплаенс-проверку.
+## Database
+
+When DATABASE_URL is set, the backend uses Supabase PostgreSQL. Otherwise it falls back to SQLite. Render Free's ephemeral filesystem is not suitable for persistent SQLite storage; use PostgreSQL for durable orders and exchange rates.
+
+## Local development
+
+From SOYER-EXCHANGE1/backend:
+
+    py -3.11 -m venv .venv
+    .venv\\Scripts\\Activate.ps1
+    pip install -r requirements.txt
+    uvicorn app.api:app --reload --host 0.0.0.0 --port 8000
+
+For the frontend, from SOYER-EXCHANGE1/frontend:
+
+    npm install
+    npm run dev
+
+Open the Mini App from Telegram so Telegram WebApp initData is available.
+
+## Security
+
+- If a bot token, database password, or webhook secret was exposed, rotate it immediately and update Render.
+- Never commit .env files or credentials.
+- Never request seed phrases, private keys, passwords, or confirmation codes.
+- The app creates exchange requests for manual processing; it does not custody funds or perform automatic transfers.
