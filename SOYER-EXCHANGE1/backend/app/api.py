@@ -425,18 +425,23 @@ def change_rates(
 ):
     admin(u)
 
-    db.set_rates(
-        x.usdt_uah,
-        x.uah_usdt
-    )
+    try:
+        saved = db.set_rates(
+            x.usdt_uah,
+            x.uah_usdt
+        )
+    except Exception:
+        logger.exception("Failed to persist exchange rates")
+        raise HTTPException(500, "Не вдалося зберегти курси. Спробуйте ще раз.")
 
     logger.info(
-        "Rates changed: USDT/UAH=%s, UAH/USDT=%s",
-        x.usdt_uah,
-        x.uah_usdt
+        "Rates persisted: USDT/UAH=%s, UAH/USDT=%s, updated=%s",
+        saved["usdt_uah"],
+        saved["uah_usdt"],
+        saved["updated"]
     )
 
-    return db.rates()
+    return saved
 
 
 # =========================
