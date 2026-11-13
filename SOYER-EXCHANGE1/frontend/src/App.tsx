@@ -44,6 +44,7 @@ export default function App() {
   const [adminOrders, AO] = useState<any[]>([]);
   const [ra, RA] = useState("46.60");
   const [rb, RB] = useState("47.70");
+  const [ratesSaving, setRatesSaving] = useState(false);
   const [pt, PT] = useState("");
   const [pd, PD] = useState("");
 
@@ -255,6 +256,9 @@ export default function App() {
       return;
     }
 
+    if (ratesSaving) return;
+
+    setRatesSaving(true);
     try {
       const updated = await api("/api/admin/rates", {
         method: "PUT",
@@ -264,15 +268,24 @@ export default function App() {
         }),
       });
 
-      R(updated);
-      RA(String(updated.usdt_uah));
-      RB(String(updated.uah_usdt));
+      // Read back from the database so the UI only confirms a real save.
+      const persisted = await api("/api/rates");
+      if (
+        Number(persisted.usdt_uah) !== a ||
+        Number(persisted.uah_usdt) !== b
+      ) {
+        throw new Error("Курси не підтверджені базою даних. Спробуйте ще раз.");
+      }
+
+      R(persisted);
+      RA(String(persisted.usdt_uah));
+      RB(String(persisted.uah_usdt));
 
       const current = Number(amount.replace(",", ".")) || 0;
       const result =
         direction === "USDT_TO_UAH"
-          ? current * Number(updated.usdt_uah)
-          : current / Number(updated.uah_usdt);
+          ? current * Number(persisted.usdt_uah)
+          : current / Number(persisted.uah_usdt);
 
       SetReceiveAmount(
         result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
@@ -280,7 +293,9 @@ export default function App() {
 
       N("Курсы успешно сохранены");
     } catch (e: any) {
-      N(e.message);
+      N(e.message || "Не вдалося зберегти курси");
+    } finally {
+      setRatesSaving(false);
     }
   }
 
@@ -618,8 +633,8 @@ export default function App() {
               inputMode="decimal"
             />
 
-            <button className="primary" onClick={saveRates}>
-              Сохранить курсы
+            <button className="primary" onClick={saveRates} disabled={ratesSaving}>
+              {ratesSaving ? "Сохранение…" : "Сохранить курсы"}
             </button>
           </section>
 
