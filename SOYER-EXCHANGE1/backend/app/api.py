@@ -38,26 +38,49 @@ webhook_task = None
 
 
 async def register_webhook_with_retry(bot_instance, webhook_url):
-    """Keep the API alive while retrying temporary Telegram outages."""
-    delay = 5
+    """Verify the current webhook before changing it; retry temporary Telegram failures."""
+    delay = 10
+
     while True:
         try:
+            # Avoid unnecessary setWebhook calls on every Render restart.
+            info = await bot_instance.get_webhook_info(request_timeout=30)
+            current_url = (info.url or "").rstrip("/")
+
+            if current_url == webhook_url.rstrip("/"):
+                logger.info(
+                    "Telegram webhook is already active: %s (pending updates: %s)",
+                    webhook_url,
+                    info.pending_update_count
+                )
+                return
+
             await bot_instance.set_webhook(
                 url=webhook_url,
                 secret_token=WEBHOOK_SECRET or None,
-                drop_pending_updates=False
+                drop_pending_updates=False,
+                request_timeout=30
             )
-            logger.info("Telegram webhook registered: %s", webhook_url)
+
+            # Verify that Telegram saved the requested URL.
+            confirmed = await bot_instance.get_webhook_info(request_timeout=30)
+            if (confirmed.url or "").rstrip("/") != webhook_url.rstrip("/"):
+                raise RuntimeError("Telegram did not confirm the requested webhook URL")
+
+            logger.info("Telegram webhook registered and verified: %s", webhook_url)
             return
+
         except asyncio.CancelledError:
             raise
-        except Exception:
-            logger.exception(
-                "Telegram webhook registration failed; retrying in %s seconds",
-                delay
+        except Exception as exc:
+            logger.warning(
+                "Telegram webhook setup temporarily failed (%s). Retrying in %s seconds.",
+                type(exc).__name__,
+                delay,
+                exc_info=True
             )
             await asyncio.sleep(delay)
-            delay = min(delay * 2, 60)
+            delay = min(delay * 2, 300)
 
 
 def is_admin(user_id):
