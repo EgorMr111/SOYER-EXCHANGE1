@@ -11,7 +11,6 @@ import {
   Clock3,
   Headphones,
   RefreshCw,
-  LogOut,
 } from "lucide-react";
 
 const API = (import.meta as any).env.VITE_API_URL || "http://localhost:8000";
@@ -25,17 +24,23 @@ const fmt = (n: number, d = 2) =>
 export default function App() {
   const [tab, T] = useState("home");
   const [user, U] = useState<any>(null);
+
   const [rates, R] = useState<any>({
     usdt_uah: 46.6,
     uah_usdt: 47.7,
   });
+
   const [orders, O] = useState<any[]>([]);
   const [promos, P] = useState<any[]>([]);
+
   const [direction, D] = useState("USDT_TO_UAH");
   const [amount, A] = useState("100");
+  const [receiveAmount, SetReceiveAmount] = useState("4660");
+
   const [contact, C] = useState("");
   const [notice, N] = useState("");
   const [busy, B] = useState(false);
+
   const [adminOrders, AO] = useState<any[]>([]);
   const [ra, RA] = useState("46.60");
   const [rb, RB] = useState("47.70");
@@ -86,6 +91,16 @@ export default function App() {
 
       RA(String(r.usdt_uah));
       RB(String(r.uah_usdt));
+
+      const initial = Number(amount) || 0;
+      const result =
+        direction === "USDT_TO_UAH"
+          ? initial * Number(r.usdt_uah)
+          : initial / Number(r.uah_usdt);
+
+      SetReceiveAmount(
+        result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
+      );
     } catch (e: any) {
       N(e.message || "Не удалось загрузить данные");
     }
@@ -97,31 +112,80 @@ export default function App() {
     refresh();
   }, []);
 
-  const n = Math.max(0, Number(amount.replace(",", ".")) || 0);
-
-  const received =
-    direction === "USDT_TO_UAH"
-      ? n * Number(rates.usdt_uah)
-      : n / Number(rates.uah_usdt);
-
-  // Права администратора проверяются через backend.
   const isAdmin = user?.is_admin === true;
 
-  function switchTab(value: string) {
-    T(value);
+  function updateSend(value: string) {
+    A(value);
 
-    if (value === "admin" && isAdmin) {
-      loadAdmin();
+    const num = Number(value.replace(",", "."));
+
+    if (value.trim() === "" || !Number.isFinite(num) || num < 0) {
+      SetReceiveAmount("");
+      return;
     }
+
+    const result =
+      direction === "USDT_TO_UAH"
+        ? num * Number(rates.usdt_uah)
+        : num / Number(rates.uah_usdt);
+
+    SetReceiveAmount(
+      result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
+    );
   }
 
+  function updateReceive(value: string) {
+    SetReceiveAmount(value);
+
+    const num = Number(value.replace(",", "."));
+
+    if (value.trim() === "" || !Number.isFinite(num) || num < 0) {
+      A("");
+      return;
+    }
+
+    const result =
+      direction === "USDT_TO_UAH"
+        ? num / Number(rates.usdt_uah)
+        : num * Number(rates.uah_usdt);
+
+    A(
+      result.toFixed(direction === "USDT_TO_UAH" ? 6 : 2)
+    );
+  }
+
+  function changeDirection(value: string) {
+    D(value);
+
+    const current = Number(amount.replace(",", ".")) || 0;
+
+    const result =
+      value === "USDT_TO_UAH"
+        ? current * Number(rates.usdt_uah)
+        : current / Number(rates.uah_usdt);
+
+    SetReceiveAmount(
+      result.toFixed(value === "USDT_TO_UAH" ? 2 : 6)
+    );
+  }
+
+  const sendNumber = Math.max(
+    0,
+    Number(amount.replace(",", ".")) || 0
+  );
+
+  const receiveNumber = Math.max(
+    0,
+    Number(receiveAmount.replace(",", ".")) || 0
+  );
+
   async function submit() {
-    if (!n || n <= 0) {
+    if (!sendNumber || sendNumber <= 0) {
       N("Введите корректную сумму");
       return;
     }
 
-    if (direction === "USDT_TO_UAH" && n < 10) {
+    if (direction === "USDT_TO_UAH" && sendNumber < 10) {
       N("Минимальная сумма — 10 USDT");
       return;
     }
@@ -133,7 +197,7 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({
           direction,
-          amount: n,
+          amount: sendNumber,
           contact,
         }),
       });
@@ -191,6 +255,16 @@ export default function App() {
       R(updated);
       RA(String(updated.usdt_uah));
       RB(String(updated.uah_usdt));
+
+      const current = Number(amount.replace(",", ".")) || 0;
+      const result =
+        direction === "USDT_TO_UAH"
+          ? current * Number(updated.usdt_uah)
+          : current / Number(updated.uah_usdt);
+
+      SetReceiveAmount(
+        result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
+      );
 
       N("Курсы успешно сохранены");
     } catch (e: any) {
@@ -303,29 +377,27 @@ export default function App() {
             <div className="switch">
               <button
                 className={direction === "USDT_TO_UAH" ? "sel" : ""}
-                onClick={() => D("USDT_TO_UAH")}
+                onClick={() => changeDirection("USDT_TO_UAH")}
               >
                 USDT → UAH
               </button>
 
               <button
                 className={direction === "UAH_TO_USDT" ? "sel" : ""}
-                onClick={() => D("UAH_TO_USDT")}
+                onClick={() => changeDirection("UAH_TO_USDT")}
               >
                 UAH → USDT
               </button>
             </div>
 
             <div className="amount">
-              <small>Вы отправляете</small>
+              <small>Віддаю</small>
 
               <div>
                 <input
                   value={amount}
-                  onChange={(e) =>
-                    A(e.target.value.replace(",", "."))
-                  }
                   inputMode="decimal"
+                  onChange={(e) => updateSend(e.target.value)}
                 />
 
                 <b>{direction === "USDT_TO_UAH" ? "USDT" : "UAH"}</b>
@@ -337,12 +409,14 @@ export default function App() {
             </div>
 
             <div className="amount receive">
-              <small>Ориентировочно получите</small>
+              <small>Отримую</small>
 
               <div>
-                <strong>
-                  {fmt(received, direction === "USDT_TO_UAH" ? 2 : 6)}
-                </strong>
+                <input
+                  value={receiveAmount}
+                  inputMode="decimal"
+                  onChange={(e) => updateReceive(e.target.value)}
+                />
 
                 <b>{direction === "USDT_TO_UAH" ? "UAH" : "USDT"}</b>
               </div>
@@ -487,7 +561,10 @@ export default function App() {
           {isAdmin && (
             <button
               className="primary"
-              onClick={() => switchTab("admin")}
+              onClick={() => {
+                T("admin");
+                loadAdmin();
+              }}
             >
               <ShieldCheck size={18} />
               Админ-панель
