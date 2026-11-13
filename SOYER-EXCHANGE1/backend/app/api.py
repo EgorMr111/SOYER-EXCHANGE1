@@ -109,7 +109,7 @@ async def lifespan(app: FastAPI):
                     inline_keyboard=[[
                         InlineKeyboardButton(
                             text="👑 Открыть админ-панель",
-                            web_app=WebAppInfo(url=WEBAPP_URL)
+                            web_app=WebAppInfo(url=f"{WEBAPP_URL}{'&' if '?' in WEBAPP_URL else '?'}view=admin")
                         )
                     ]]
                 )
