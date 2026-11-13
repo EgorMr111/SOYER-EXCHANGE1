@@ -117,6 +117,9 @@ export default function App() {
   useEffect(() => {
     tg?.ready?.();
     tg?.expand?.();
+    // Keep Telegram's Mini App chrome aligned with the website background.
+    tg?.setHeaderColor?.("#080a0f");
+    tg?.setBackgroundColor?.("#080a0f");
     refresh();
   }, []);
 
