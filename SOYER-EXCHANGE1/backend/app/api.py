@@ -125,12 +125,20 @@ async def lifespan(app: FastAPI):
                     return
 
                 keyboard = InlineKeyboardMarkup(
-                    inline_keyboard=[[
-                        InlineKeyboardButton(
-                            text="💱 Відкрити SOYER EXCHANGE",
-                            web_app=WebAppInfo(url=WEBAPP_URL)
-                        )
-                    ]]
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text="💱 Калькулятор курсу",
+                                web_app=WebAppInfo(url=WEBAPP_URL)
+                            )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text="💬 Написати менеджеру",
+                                url="https://t.me/soyermanager"
+                            )
+                        ]
+                    ]
                 )
 
                 await message.answer(
