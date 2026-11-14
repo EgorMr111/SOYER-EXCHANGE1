@@ -549,3 +549,21 @@ def add_promotion(
         "ok": True,
         "message": "Акция добавлена"
     }
+
+@app.delete("/api/admin/promotions/{promo_id}")
+def delete_promotion(
+    promo_id: int,
+    u=Depends(current_user)
+):
+    admin(u)
+
+    try:
+        deleted = db.delete_promo(promo_id)
+    except Exception:
+        logger.exception("Failed to delete promotion %s", promo_id)
+        raise HTTPException(500, "Не вдалося видалити акцію")
+
+    if not deleted:
+        raise HTTPException(404, "Акцію не знайдено")
+
+    return {"ok": True, "id": promo_id}
