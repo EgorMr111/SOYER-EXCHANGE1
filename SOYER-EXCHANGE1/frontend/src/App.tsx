@@ -8,6 +8,7 @@ import {
   UserRound,
   ShieldCheck,
   Headphones,
+  Clock3,
   RefreshCw,
 } from "lucide-react";
 
@@ -468,10 +469,7 @@ export default function App() {
           {isAdmin && (
             <button
               className="primary"
-              onClick={() => {
-                T("admin");
-                loadAdmin();
-              }}
+              onClick={() => T("admin")}
             >
               <ShieldCheck size={18} />
               Панель адміністратора
