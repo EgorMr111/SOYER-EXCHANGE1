@@ -56,7 +56,7 @@ header>.logo{
   flex:none;
 }
 header>.logo+div{
-  width:100%;
+  width:auto;
   min-width:0;
   flex:none;
   overflow:hidden;
@@ -114,22 +114,9 @@ header>.online{
 }
 
 
-/* Draw the sticky header separator across the entire Telegram WebView.
-   The app has horizontal padding, so the normal header border stops short. */
-.app > header {
-  position: sticky;
-  isolation: isolate;
-  border-bottom: 0 !important;
-}
-.app > header::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  left: 50%;
-  bottom: 0;
-  width: 100vw;
-  height: 1px;
-  transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.075);
-  pointer-events: none;
-}
+
+/* Keep the online label fully visible without extending the header outside the app. */
+.app > header { width:100%; margin-left:0; padding-left:0; padding-right:0; display:grid; grid-template-columns:39px minmax(0,1fr) max-content; column-gap:9px; overflow:visible; }
+.app > header > .logo + div { width:auto; min-width:0; }
+.app > header > .online { min-width:max-content; max-width:none; white-space:nowrap; justify-self:end; overflow:visible; }
+@media(max-width:360px){ .app > header { grid-template-columns:35px minmax(0,1fr) max-content; column-gap:7px; } }
