@@ -98,6 +98,11 @@ def promos():
 def add_promo(t,x):
     with conn() as d: d.execute("INSERT INTO promotions(title,description) VALUES(?,?)",(t,x))
 
+def delete_promo(promo_id):
+    with conn() as d:
+        cur = d.execute("DELETE FROM promotions WHERE id=?", (int(promo_id),))
+        return cur.rowcount == 1
+
 
 # On Render, use Supabase PostgreSQL when DATABASE_URL is configured.
 from .config import DATABASE_URL
