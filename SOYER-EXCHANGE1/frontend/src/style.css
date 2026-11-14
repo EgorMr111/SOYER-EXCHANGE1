@@ -112,3 +112,24 @@ header>.online{
     padding-right:12px;
   }
 }
+
+
+/* Draw the sticky header separator across the entire Telegram WebView.
+   The app has horizontal padding, so the normal header border stops short. */
+.app > header {
+  position: sticky;
+  isolation: isolate;
+  border-bottom: 0 !important;
+}
+.app > header::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: 0;
+  width: 100vw;
+  height: 1px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.075);
+  pointer-events: none;
+}
