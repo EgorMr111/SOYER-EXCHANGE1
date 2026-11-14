@@ -155,3 +155,12 @@ def add_promo(title, description):
             "INSERT INTO promotions(title, description) VALUES(%s, %s)",
             (title, description)
         )
+
+
+def delete_promo(promo_id):
+    with conn() as d:
+        cur = d.execute(
+            "DELETE FROM promotions WHERE id=%s",
+            (int(promo_id),)
+        )
+        return cur.rowcount == 1
