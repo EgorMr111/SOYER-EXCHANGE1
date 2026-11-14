@@ -558,6 +558,36 @@ export default function App() {
             </button>
           </section>
 
+          <section className="panel">
+            <div className="admin-promos-heading">
+              <h2>Керування акціями</h2>
+              <span>{promos.length} шт.</span>
+            </div>
+            {promos.length ? (
+              <div className="admin-promos-list">
+                {promos.map((p) => (
+                  <article className="admin-promo" key={p.id}>
+                    <div className="admin-promo-copy">
+                      <b>{p.title}</b>
+                      <p>{p.description}</p>
+                      <small>ID: {p.id}</small>
+                    </div>
+                    <button
+                      className="delete-promo"
+                      onClick={() => deletePromo(Number(p.id))}
+                    >
+                      Видалити
+                    </button>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="admin-promos-empty">
+                Акцій поки немає. Додайте першу вище.
+              </div>
+            )}
+          </section>
+
         </main>
       )}
 
