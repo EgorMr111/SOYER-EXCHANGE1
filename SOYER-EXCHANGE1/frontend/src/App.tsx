@@ -4,11 +4,9 @@ import {
   ArrowDownUp,
   ArrowRight,
   Home,
-  History,
   Gift,
   UserRound,
   ShieldCheck,
-  Clock3,
   Headphones,
   RefreshCw,
 } from "lucide-react";
@@ -30,23 +28,14 @@ export default function App() {
     uah_usdt: 47.7,
   });
 
-  const [orders, O] = useState<any[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState("");
   const [promos, P] = useState<any[]>([]);
 
   const [direction, D] = useState("USDT_TO_UAH");
   const [amount, A] = useState("100");
   const [receiveAmount, SetReceiveAmount] = useState("4660");
 
-  const [contact, C] = useState("");
   const [notice, N] = useState("");
-  const [busy, B] = useState(false);
 
-  const [adminOrders, AO] = useState<any[]>([]);
-  const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
-  const [adminOrdersError, setAdminOrdersError] = useState("");
-  const [updatingOrder, setUpdatingOrder] = useState("");
   const [ra, RA] = useState("46.60");
   const [rb, RB] = useState("47.70");
   const [ratesSaving, setRatesSaving] = useState(false);
@@ -83,12 +72,9 @@ export default function App() {
     }
 
     try {
-      setOrdersLoading(true);
-      setOrdersError("");
-      const [u, r, o, p] = await Promise.all([
+      const [u, r, p] = await Promise.all([
         api("/api/me"),
         api("/api/rates"),
-        api("/api/orders"),
         api("/api/promotions"),
       ]);
 
@@ -102,24 +88,9 @@ export default function App() {
         }
       }
       R(r);
-      O(o);
-      setOrdersError("");
       P(p);
 
-      // The admin deep link must load the admin order list as soon as
-      // Telegram authentication confirms the account is an administrator.
-      if (requestedAdmin && u.is_admin === true) {
-        T("admin");
-        try {
-          setAdminOrdersLoading(true);
-          setAdminOrdersError("");
-          AO(await api("/api/admin/orders"));
-        } catch (adminError: any) {
-          setAdminOrdersError(adminError.message || "Не вдалося завантажити заявки");
-        } finally {
-          setAdminOrdersLoading(false);
-        }
-      }
+      if (requestedAdmin && u.is_admin === true) T("admin");
 
       RA(String(r.usdt_uah));
       RB(String(r.uah_usdt));
@@ -134,10 +105,7 @@ export default function App() {
         result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
       );
     } catch (e: any) {
-      setOrdersError(e.message || "Не вдалося завантажити заявки");
       N(e.message || "Не вдалося завантажити дані");
-    } finally {
-      setOrdersLoading(false);
     }
   }
 
@@ -218,83 +186,8 @@ export default function App() {
     Number(receiveAmount.replace(",", ".")) || 0
   );
 
-  async function submit() {
-    if (!sendNumber || sendNumber <= 0) {
-      N("Введіть коректну суму");
-      return;
-    }
-
-    if (direction === "USDT_TO_UAH" && sendNumber < 10) {
-      N("Мінімальна сума — 10 USDT");
-      return;
-    }
-
-    B(true);
-
-    try {
-      const x = await api("/api/orders", {
-        method: "POST",
-        body: JSON.stringify({
-          direction,
-          amount: sendNumber,
-          contact,
-        }),
-      });
-
-      N("Заявку " + x.order_no + " створено. Менеджер зв’яжеться з вами.");
-      T("orders");
-      await refresh();
-    } catch (e: any) {
-      N(e.message);
-    } finally {
-      B(false);
-    }
-  }
-
-  async function loadAdmin() {
-    setAdminOrdersLoading(true);
-    setAdminOrdersError("");
-    try {
-      const data = await api("/api/admin/orders");
-      AO(data);
-      return true;
-    } catch (e: any) {
-      setAdminOrdersError(e.message || "Не вдалося завантажити заявки");
-      return false;
-    } finally {
-      setAdminOrdersLoading(false);
-    }
-  }
-
-  async function changeStatus(no: string, status: string) {
-    if (updatingOrder) return;
-    setUpdatingOrder(no);
-    try {
-      const saved = await api("/api/admin/orders/" + encodeURIComponent(no), {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      });
-
-      // Update the visible row from the backend's confirmed response first.
-      AO((current) =>
-        current.map((order) =>
-          order.number === no
-            ? { ...order, status: saved.status, updated: saved.updated }
-            : order
-        )
-      );
-
-      const refreshed = await loadAdmin();
-      N(
-        refreshed
-          ? "Статус заявки змінено"
-          : "Статус збережено, але список не оновився. Натисніть «Оновити»."
-      );
-    } catch (e: any) {
-      N(e.message || "Не вдалося змінити статус заявки");
-    } finally {
-      setUpdatingOrder("");
-    }
+  function contactManager() {
+    window.open("https://t.me/soyermanager", "_blank");
   }
 
   async function saveRates() {
@@ -374,20 +267,6 @@ export default function App() {
     }
   }
 
-  const statusLabel = (s: string) =>
-    s === "В обработке" ? "В обробці" :
-    s === "Отменена" ? "Скасована" :
-    s === "Завершена" ? "Завершена" : "Нова";
-
-  const statusClass = (s: string) =>
-    s === "Завершена"
-      ? "done"
-      : s === "Отменена"
-      ? "cancel"
-      : s === "В обработке"
-      ? "work"
-      : "new";
-
   return (
     <div className="app">
       <header>
@@ -423,7 +302,7 @@ export default function App() {
             </h1>
 
             <p>
-              Залиште заявку — менеджер уточнить деталі та підтвердить умови.
+              Розрахуйте суму та напишіть менеджеру напряму — він уточнить деталі обміну.
             </p>
 
             <div className="rates">
@@ -504,26 +383,13 @@ export default function App() {
               </div>
             </div>
 
-            <label>Контакт для зв’язку (необов’язково)</label>
-
-            <input
-              className="text"
-              placeholder="@username або телефон"
-              value={contact}
-              onChange={(e) => C(e.target.value)}
-            />
-
-            <button
-              className="primary"
-              disabled={busy}
-              onClick={submit}
-            >
-              {busy ? "Надсилання…" : "Створити заявку"}
+            <button className="primary" onClick={contactManager}>
+              Написати менеджеру
               <ArrowRight size={17} />
             </button>
 
             <p className="disclaimer">
-              Заявка не є угодою. Не надсилайте кошти до підтвердження умов менеджером.
+              Розрахунок орієнтовний. Остаточні умови обміну погоджуйте безпосередньо з менеджером.
             </p>
           </section>
 
@@ -536,8 +402,8 @@ export default function App() {
 
             <div>
               <Clock3 />
-              <b>Статус заявки</b>
-              <small>Сповіщення в Telegram</small>
+              <b>Зв’язок напряму</b>
+              <small>Менеджер відповість у Telegram</small>
             </div>
 
             <div>
@@ -546,54 +412,6 @@ export default function App() {
               <small>@soyermanager</small>
             </div>
           </div>
-        </main>
-      )}
-
-      {tab === "orders" && (
-        <main>
-          <div className="title">
-            <small>ВАША АКТИВНІСТЬ</small>
-            <h1>Мої заявки</h1>
-          </div>
-
-          {ordersLoading ? (
-            <div className="empty"><RefreshCw /><b>Завантаження заявок…</b></div>
-          ) : ordersError ? (
-            <div className="empty">
-              <b>Не вдалося завантажити заявки</b>
-              <p>{ordersError}</p>
-              <button className="primary" onClick={refresh}>Спробувати ще раз</button>
-            </div>
-          ) : orders.length ? (
-            orders.map((o) => (
-              <article className="order" key={o.number}>
-                <div className="orderhead">
-                  <b>{o.number}</b>
-                  <span className={statusClass(o.status)}>
-                    {statusLabel(o.status)}
-                  </span>
-                </div>
-
-                <h3>{o.direction}</h3>
-                <p>
-                  {fmt(o.amount, 6)} → {fmt(o.received, 6)}
-                </p>
-
-                <small>
-                  {new Date(o.created).toLocaleString("uk-UA")}
-                </small>
-              </article>
-            ))
-          ) : (
-            <div className="empty">
-              <History />
-              <b>Заявок поки немає</b>
-
-              <button className="primary" onClick={() => T("home")}>
-                Перейти до обміну
-              </button>
-            </div>
-          )}
         </main>
       )}
 
@@ -722,92 +540,12 @@ export default function App() {
             </button>
           </section>
 
-          <section>
-            <h2>Заявки користувачів</h2>
-
-            <button className="outline" onClick={loadAdmin}>
-              <RefreshCw size={15} />
-              Оновити
-            </button>
-
-            {adminOrdersLoading ? (
-              <div className="empty"><RefreshCw /><b>Завантаження заявок…</b></div>
-            ) : adminOrdersError ? (
-              <div className="empty">
-                <b>Не вдалося завантажити заявки</b>
-                <p>{adminOrdersError}</p>
-                <button className="primary" onClick={loadAdmin}>Спробувати ще раз</button>
-                {adminOrders.length > 0 ? <p>Показано раніше завантажені заявки.</p> : null}
-              </div>
-            ) : adminOrders.length ? (
-              adminOrders.map((o) => (
-                <article className="order" key={o.number}>
-                  <div className="orderhead">
-                    <b>{o.number}</b>
-                    <span className={statusClass(o.status)}>
-                      {o.status}
-                    </span>
-                  </div>
-
-                  <p>
-                    {o.direction} · {o.amount} → {o.received}
-                  </p>
-
-                  <div className="customer-contact">
-                    <p><b>Клієнт:</b> {o.customer_name || "Без імені"}</p>
-                    <p><b>Telegram ID:</b> {o.user_id}</p>
-                    {o.username ? (
-                      <p><b>Telegram:</b> @{o.username}</p>
-                    ) : null}
-                    {o.contact ? (
-                      <p><b>Контакт із заявки:</b> {o.contact}</p>
-                    ) : (
-                      <p><b>Контакт із заявки:</b> не вказано</p>
-                    )}
-                    <div className="actions">
-                      {o.username ? (
-                        <button onClick={() => window.open("https://t.me/" + encodeURIComponent(o.username), "_blank")}>
-                          Відкрити чат
-                        </button>
-                      ) : (
-                        <button onClick={() => navigator.clipboard?.writeText(String(o.user_id))}>
-                          Скопіювати Telegram ID
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="actions">
-                    {[
-                      ["В обработке", "В обробці"],
-                      ["Завершена", "Завершена"],
-                      ["Отменена", "Скасована"],
-                    ].map(([status, label]) => (
-                      <button
-                        key={status}
-                        disabled={updatingOrder === o.number}
-                        onClick={() => changeStatus(o.number, status)}
-                      >
-                        {updatingOrder === o.number ? "Збереження…" : label}
-                      </button>
-                    ))}
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="empty">
-                <History />
-                <b>Заявок поки немає</b>
-              </div>
-            )}
-          </section>
         </main>
       )}
 
       <nav>
         {[
           ["home", "Головна", Home],
-          ["orders", "Заявки", History],
           ["promos", "Акції", Gift],
           ["profile", "Профіль", UserRound],
         ].map(([id, label, Icon]: any) => (
