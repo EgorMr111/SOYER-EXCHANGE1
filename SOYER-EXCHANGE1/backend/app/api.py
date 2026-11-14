@@ -136,8 +136,8 @@ async def lifespan(app: FastAPI):
                 await message.answer(
                     "👋 Ласкаво просимо до SOYER EXCHANGE!\n\n"
                     "💱 Обмін USDT та UAH\n"
-                    "📋 Створення заявок\n"
-                    "🤝 Підтримка менеджера",
+                    "🧮 Калькулятор курсу в застосунку\n"
+                    "🤝 Для обміну напишіть менеджеру: @soyermanager",
                     reply_markup=keyboard
                 )
 
@@ -145,9 +145,10 @@ async def lifespan(app: FastAPI):
             async def help_command(message: Message):
                 await message.answer(
                     "SOYER EXCHANGE\n\n"
-                    "/start — відкрити застосунок\n"
-                    "/help — допомога\n"
-                    "/admin — панель адміністратора"
+                    "/start — головне меню\n"
+                    "/help — контакти та допомога\n"
+                    "/admin — панель адміністратора\n\n"
+                    "Для обміну напишіть менеджеру: @soyermanager"
                 )
 
             @dp.message(Command("admin"))
