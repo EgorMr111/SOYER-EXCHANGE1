@@ -7,3 +7,32 @@ header>.logo+div{min-width:0;flex:0 1 auto}
 .online{flex-shrink:0;white-space:nowrap;margin-left:auto;margin-right:2px;padding:5px 0 5px 6px;line-height:1.2}
 .delete-promo{width:100%;margin-top:12px;padding:10px 12px;border:1px solid rgba(255,115,115,.28);border-radius:9px;background:rgba(255,85,85,.09);color:#ffaaaa;font-size:11px;font-weight:700;cursor:pointer}
 .delete-promo:active{opacity:.75}
+
+
+/* Keep the status badge inside the Telegram Mini App header on narrow screens. */
+header{width:100%;min-width:0;max-width:100%;padding-right:2px;overflow:hidden}
+header>.logo{flex:0 0 39px}
+header>.logo+div{flex:1 1 auto;min-width:0;overflow:hidden}
+header>.logo+div b{display:block;white-space:nowrap;font-size:clamp(11px,3.2vw,14px);letter-spacing:.6px}
+header>.logo+div small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header>.online{flex:0 0 auto;min-width:max-content;margin-left:4px;margin-right:0;padding:5px 0 5px 3px;font-size:clamp(7px,2.25vw,9px);letter-spacing:-.15px;white-space:nowrap}
+.admin-promos-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.admin-promos-heading h2{margin-bottom:8px}
+.admin-promos-heading span{font-size:10px;color:#8793a7;white-space:nowrap}
+.admin-promos-list{display:grid;gap:10px;margin-top:8px}
+.admin-promo{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #ffffff14;border-radius:12px;background:#0d131e;min-width:0}
+.admin-promo-copy{flex:1;min-width:0}
+.admin-promo-copy b{display:block;font-size:13px;overflow-wrap:anywhere}
+.admin-promo-copy p{margin:5px 0;color:#8793a7;font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.admin-promo-copy small{color:#68758b;font-size:9px}
+.admin-promo .delete-promo{width:auto;flex:0 0 auto;margin:0;padding:10px 12px}
+.admin-promos-empty{padding:18px 8px;color:#8793a7;font-size:12px;text-align:center}
+@media(max-width:360px){
+  .app{padding-left:12px;padding-right:12px}
+  header{gap:7px}
+  header>.logo{width:35px;flex-basis:35px}
+  header>.logo+div b{font-size:11px}
+  header>.online{font-size:7px}
+  .admin-promo{align-items:flex-start;flex-direction:column}
+  .admin-promo .delete-promo{width:100%}
+}
