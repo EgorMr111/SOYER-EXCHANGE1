@@ -36,3 +36,61 @@ header>.online{flex:0 0 auto;min-width:max-content;margin-left:4px;margin-right:
   .admin-promo{align-items:flex-start;flex-direction:column}
   .admin-promo .delete-promo{width:100%}
 }
+
+
+/* Final responsive header layout: reserve a dedicated column for the online status. */
+header{
+  display:grid;
+  grid-template-columns:39px minmax(0,1fr) max-content;
+  align-items:center;
+  column-gap:9px;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  padding:0;
+  overflow:visible;
+}
+header>.logo{
+  width:39px;
+  min-width:0;
+  flex:none;
+}
+header>.logo+div{
+  width:100%;
+  min-width:0;
+  flex:none;
+  overflow:hidden;
+}
+header>.logo+div b{
+  display:block;
+  white-space:nowrap;
+  font-size:clamp(10px,3.1vw,14px);
+  letter-spacing:.35px;
+}
+header>.logo+div small{
+  display:block;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+header>.online{
+  display:inline-flex;
+  align-items:center;
+  justify-self:end;
+  min-width:0;
+  max-width:none;
+  flex:none;
+  margin:0;
+  padding:6px 0 6px 2px;
+  white-space:nowrap;
+  overflow:visible;
+  font-size:clamp(8px,2.5vw,9px);
+  letter-spacing:0;
+  line-height:1;
+}
+@media(max-width:360px){
+  header{grid-template-columns:35px minmax(0,1fr) max-content;column-gap:7px}
+  header>.logo{width:35px}
+  header>.logo+div b{font-size:10px;letter-spacing:0}
+  header>.online{font-size:8px}
+}
