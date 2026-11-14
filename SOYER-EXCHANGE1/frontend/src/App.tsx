@@ -268,6 +268,18 @@ export default function App() {
     }
   }
 
+  async function deletePromo(id: number) {
+    if (!window.confirm("Видалити цю акцію?")) return;
+
+    try {
+      await api(`/api/admin/promotions/${id}`, { method: "DELETE" });
+      P(await api("/api/promotions"));
+      N("Акцію видалено");
+    } catch (e: any) {
+      N(e.message || "Не вдалося видалити акцію");
+    }
+  }
+
   return (
     <div className="app">
       <header>
@@ -429,6 +441,14 @@ export default function App() {
                 <Gift />
                 <h3>{p.title}</h3>
                 <p>{p.description}</p>
+                {isAdmin && (
+                  <button
+                    className="delete-promo"
+                    onClick={() => deletePromo(Number(p.id))}
+                  >
+                    Видалити акцію
+                  </button>
+                )}
               </article>
             ))
           ) : (
