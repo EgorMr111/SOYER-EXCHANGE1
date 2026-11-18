@@ -142,10 +142,6 @@ async def lifespan(app: FastAPI):
                             InlineKeyboardButton(
                                 text="📢 SOYER PR",
                                 url="https://t.me/soyer_pr"
-                            ),
-                            InlineKeyboardButton(
-                                text="🌐 Проєкт SOYER",
-                                url="https://github.com/EgorMr111/SOYER-EXCHANGE1"
                             )
                         ]
                     ]
