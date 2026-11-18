@@ -120,3 +120,72 @@ header>.online{
 .app > header > .logo + div { width:auto; min-width:0; }
 .app > header > .online { min-width:max-content; max-width:none; white-space:nowrap; justify-self:end; overflow:visible; }
 @media(max-width:360px){ .app > header { grid-template-columns:35px minmax(0,1fr) max-content; column-gap:7px; } }
+
+
+/* Final Telegram Mini App header fit: keep the online badge inside the viewport. */
+.app > header {
+  display: grid;
+  grid-template-columns: 39px minmax(0, 1fr) max-content;
+  align-items: center;
+  column-gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0 4px 0 0;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: visible;
+}
+.app > header > .logo {
+  width: 39px;
+  min-width: 39px;
+  flex: none;
+}
+.app > header > .logo + div {
+  min-width: 0;
+  width: auto;
+  overflow: hidden;
+}
+.app > header > .logo + div b {
+  display: block;
+  white-space: nowrap;
+  font-size: clamp(10px, 3vw, 14px);
+  letter-spacing: .35px;
+}
+.app > header > .logo + div small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app > header > .online {
+  display: inline-flex;
+  justify-self: end;
+  align-items: center;
+  flex: none;
+  min-width: max-content;
+  max-width: none;
+  margin: 0;
+  padding: 7px 0 7px 2px;
+  white-space: nowrap;
+  overflow: visible;
+  font-size: clamp(8px, 2.4vw, 9px);
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+@media (max-width: 360px) {
+  .app > header {
+    grid-template-columns: 35px minmax(0, 1fr) max-content;
+    column-gap: 7px;
+  }
+  .app > header > .logo {
+    width: 35px;
+    min-width: 35px;
+  }
+  .app > header > .logo + div b {
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+  .app > header > .online {
+    font-size: 8px;
+  }
+}
