@@ -167,7 +167,6 @@ async def lifespan(app: FastAPI):
                     "/help — контакти та допомога\n"
                     "/admin — панель адміністратора\n\n"
                     "SOYER PR: https://t.me/soyer_pr\n"
-                    "Проєкт: https://github.com/EgorMr111/SOYER-EXCHANGE1\n"
                     "Для обміну напишіть менеджеру: @soyermanager"
                 )
 
