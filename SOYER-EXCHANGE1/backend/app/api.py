@@ -137,6 +137,16 @@ async def lifespan(app: FastAPI):
                                 text="💬 Написати менеджеру",
                                 url="https://t.me/soyermanager"
                             )
+                        ],
+                        [
+                            InlineKeyboardButton(
+                                text="📢 SOYER PR",
+                                url="https://t.me/soyer_pr"
+                            ),
+                            InlineKeyboardButton(
+                                text="🌐 Проєкт SOYER",
+                                url="https://github.com/EgorMr111/SOYER-EXCHANGE1"
+                            )
                         ]
                     ]
                 )
@@ -156,6 +166,8 @@ async def lifespan(app: FastAPI):
                     "/start — головне меню\n"
                     "/help — контакти та допомога\n"
                     "/admin — панель адміністратора\n\n"
+                    "SOYER PR: https://t.me/soyer_pr\n"
+                    "Проєкт: https://github.com/EgorMr111/SOYER-EXCHANGE1\n"
                     "Для обміну напишіть менеджеру: @soyermanager"
                 )
 
