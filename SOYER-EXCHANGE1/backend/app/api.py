@@ -337,10 +337,10 @@ async def create_order(
 
     if x.direction == "USDT_TO_UAH":
 
-        if x.amount < 10:
+        if x.amount < 5:
             raise HTTPException(
                 400,
-                "Минимум 10 USDT"
+                "Минимум 5 USDT"
             )
 
         rate = r["usdt_uah"]
