@@ -332,7 +332,7 @@ export default function App() {
 
             <small className="hint">
               <ShieldCheck size={14} />
-              Курс орієнтовний · мінімум 10 USDT
+              Курс орієнтовний · мінімум 5 USDT
             </small>
           </section>
 
