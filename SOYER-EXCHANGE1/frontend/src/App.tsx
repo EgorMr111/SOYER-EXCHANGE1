@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownUp,
   ArrowRight,
@@ -11,209 +10,365 @@ import {
   Clock3,
   RefreshCw,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const API = (import.meta as any).env.VITE_API_URL || "http://localhost:8000";
+/* ---------- Типи ---------- */
+
+type Direction = "USDT_TO_UAH" | "UAH_TO_USDT";
+type Tab = "home" | "promos" | "profile" | "admin";
+type LoadState = "idle" | "loading" | "ok" | "error";
+
+interface Rates {
+  usdt_uah: number;
+  uah_usdt: number;
+  updated?: string;
+}
+
+interface User {
+  id: number;
+  name: string;
+  username: string;
+  is_admin: boolean;
+}
+
+interface Promo {
+  id: number;
+  title: string;
+  description: string;
+}
+
+/* ---------- Константи ---------- */
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const tg = window.Telegram?.WebApp;
 
+const MANAGER_URL = "https://t.me/soyermanager";
+/** Мінімальна сума обміну, виражена в USDT (для обох напрямків). */
+const MIN_USDT = 5;
+/** Збігається з лімітом на бекенді (OrderIn.amount le=10000000). */
+const MAX_AMOUNT = 10_000_000;
+/** Межа курсу на бекенді (RatesIn lt=100000). */
+const MAX_RATE = 100_000;
+
+const requestedAdmin =
+  new URLSearchParams(window.location.search).get("view") === "admin";
+
+const NAV: { id: Tab; label: string; Icon: LucideIcon }[] = [
+  { id: "home", label: "Головна", Icon: Home },
+  { id: "promos", label: "Акції", Icon: Gift },
+  { id: "profile", label: "Профіль", Icon: UserRound },
+];
+
+/* ---------- Допоміжні функції ---------- */
+
 const fmt = (n: number, d = 2) =>
-  new Intl.NumberFormat("uk-UA", {
-    maximumFractionDigits: d,
-  }).format(Number(n) || 0);
+  new Intl.NumberFormat("uk-UA", { maximumFractionDigits: d }).format(
+    Number.isFinite(n) ? n : 0
+  );
 
-export default function App() {
-  const [tab, T] = useState("home");
-  const [user, U] = useState<any>(null);
+/** Залишає лише цифри та одну десяткову крапку (кома → крапка). */
+function sanitizeInput(raw: string, decimals = 2): string {
+  const s = raw.replace(/,/g, ".").replace(/[^\d.]/g, "");
+  const dot = s.indexOf(".");
+  if (dot !== -1) {
+    const int = s.slice(0, dot);
+    const frac = s.slice(dot + 1).replace(/\./g, "").slice(0, decimals);
+    return `${int.slice(0, 9)}.${frac}`;
+  }
+  return s.slice(0, 9);
+}
 
-  const [rates, R] = useState<any>({
-    usdt_uah: 46.6,
-    uah_usdt: 47.7,
+/** Повертає число або null, якщо рядок порожній чи некоректний. */
+function parseAmount(s: string): number | null {
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(s)) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatResult(n: number): string {
+  return Number.isFinite(n) ? (Math.round(n * 100) / 100).toFixed(2) : "";
+}
+
+const sendToReceive = (dir: Direction, send: number, r: Rates) =>
+  dir === "USDT_TO_UAH" ? send * r.usdt_uah : send / r.uah_usdt;
+
+const receiveToSend = (dir: Direction, receive: number, r: Rates) =>
+  dir === "USDT_TO_UAH" ? receive / r.usdt_uah : receive * r.uah_usdt;
+
+function openManager() {
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink(MANAGER_URL);
+  } else {
+    window.open(MANAGER_URL, "_blank", "noopener,noreferrer");
+  }
+}
+
+function confirmAction(message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (tg?.showConfirm) {
+      try {
+        tg.showConfirm(message, resolve);
+        return;
+      } catch {
+        /* старі версії Telegram не підтримують showConfirm */
+      }
+    }
+    resolve(window.confirm(message));
   });
+}
 
-  const [promos, P] = useState<any[]>([]);
-
-  const [direction, D] = useState("USDT_TO_UAH");
-  const [amount, A] = useState("100");
-  const [receiveAmount, SetReceiveAmount] = useState("4660");
-
-  const [notice, N] = useState("");
-
-  const [ra, RA] = useState("46.60");
-  const [rb, RB] = useState("47.70");
-  const [ratesSaving, setRatesSaving] = useState(false);
-  const [pt, PT] = useState("");
-  const [pd, PD] = useState("");
-
-  const headers = {
-    "Content-Type": "application/json",
-    "X-Telegram-Init-Data": tg?.initData || "",
-  };
-
-  async function api(path: string, options: any = {}) {
-    const res = await fetch(API + path, {
+async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(API + path, {
       ...options,
       headers: {
-        ...headers,
-        ...options.headers,
+        "Content-Type": "application/json",
+        "X-Telegram-Init-Data": tg?.initData || "",
+        ...(options.headers as Record<string, string> | undefined),
       },
     });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      throw new Error(data.detail || `Помилка API: ${res.status}`);
-    }
-
-    return data;
+  } catch {
+    throw new Error("Немає зв’язку із сервером. Спробуйте ще раз.");
   }
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    // FastAPI повертає detail масивом для помилок валідації (422).
+    const detail =
+      typeof data?.detail === "string"
+        ? data.detail
+        : res.status === 422
+          ? "Перевірте правильність введених даних"
+          : `Помилка API: ${res.status}`;
+    throw new Error(detail);
+  }
+
+  return data as T;
+}
+
+const errMsg = (e: unknown, fallback: string) =>
+  e instanceof Error && e.message ? e.message : fallback;
+
+/* ---------- Застосунок ---------- */
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>("home");
+  const [user, setUser] = useState<User | null>(null);
+  // null — курс ще не отримано з сервера (не показуємо вигаданих значень)
+  const [rates, setRates] = useState<Rates | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [promos, setPromos] = useState<Promo[]>([]);
+
+  const [direction, setDirection] = useState<Direction>("USDT_TO_UAH");
+  const [amount, setAmount] = useState("100");
+  const [receiveAmount, setReceiveAmount] = useState("");
+
+  const [notice, setNotice] = useState("");
+
+  const [rateA, setRateA] = useState("");
+  const [rateB, setRateB] = useState("");
+  const [ratesSaving, setRatesSaving] = useState(false);
+  const [promoTitle, setPromoTitle] = useState("");
+  const [promoDesc, setPromoDesc] = useState("");
+  const [promoAdding, setPromoAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const refreshing = useRef(false);
+  const adminHandled = useRef(false);
+
+  const isAdmin = user?.is_admin === true;
 
   async function refresh() {
     if (!tg?.initData) {
-      N("Відкрийте застосунок через Telegram-бота для авторизації.");
+      setNotice("Відкрийте застосунок через Telegram-бота для авторизації.");
+      setLoadState("error");
       return;
     }
+    if (refreshing.current) return;
+    refreshing.current = true;
+    setLoadState("loading");
 
     try {
       const [u, r, p] = await Promise.all([
-        api("/api/me"),
-        api("/api/rates"),
-        api("/api/promotions"),
+        api<User>("/api/me"),
+        api<Rates>("/api/rates"),
+        api<Promo[]>("/api/promotions"),
       ]);
 
-      U(u);
-      if (requestedAdmin) {
+      setUser(u);
+      setRates(r);
+      setPromos(p);
+      setRateA(String(r.usdt_uah));
+      setRateB(String(r.uah_usdt));
+
+      if (requestedAdmin && !adminHandled.current) {
+        adminHandled.current = true;
         if (u.is_admin === true) {
-          T("admin");
+          setTab("admin");
         } else {
-          T("home");
-          N("Цей акаунт не має доступу до панелі адміністратора.");
+          setNotice("Цей акаунт не має доступу до панелі адміністратора.");
         }
       }
-      R(r);
-      P(p);
-
-      if (requestedAdmin && u.is_admin === true) T("admin");
-
-      RA(String(r.usdt_uah));
-      RB(String(r.uah_usdt));
-
-      const initial = Number(amount) || 0;
-      const result =
-        direction === "USDT_TO_UAH"
-          ? initial * Number(r.usdt_uah)
-          : initial / Number(r.uah_usdt);
-
-      SetReceiveAmount(
-        result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
-      );
-    } catch (e: any) {
-      N(e.message || "Не вдалося завантажити дані");
+      setLoadState("ok");
+    } catch (e) {
+      setNotice(errMsg(e, "Не вдалося завантажити дані"));
+      setLoadState("error");
+    } finally {
+      refreshing.current = false;
     }
   }
 
   useEffect(() => {
     tg?.ready?.();
     tg?.expand?.();
-    // Keep Telegram's Mini App chrome aligned with the website background.
     tg?.setHeaderColor?.("#080a0f");
     tg?.setBackgroundColor?.("#080a0f");
     refresh();
   }, []);
 
-  const isAdmin = user?.is_admin === true;
-  const requestedAdmin = new URLSearchParams(window.location.search).get("view") === "admin";
+  // Перерахунок «Отримую» щойно змінився курс (завантаження / збереження в адмінці).
+  useEffect(() => {
+    if (!rates) return;
+    const n = parseAmount(amount);
+    setReceiveAmount(
+      n === null ? "" : formatResult(sendToReceive(direction, n, rates))
+    );
+  }, [rates]);
 
-  function updateSend(value: string) {
-    A(value);
+  // Нова вкладка — завжди з початку сторінки.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab]);
 
-    const num = Number(value.replace(",", "."));
+  // Кнопка «Назад» Telegram: з адмінки — до профілю.
+  useEffect(() => {
+    const back = tg?.BackButton;
+    if (!back || tab !== "admin") return;
+    const goBack = () => setTab("profile");
+    back.show();
+    back.onClick(goBack);
+    return () => {
+      back.offClick(goBack);
+      back.hide();
+    };
+  }, [tab]);
 
-    if (value.trim() === "" || !Number.isFinite(num) || num < 0) {
-      SetReceiveAmount("");
-      return;
+  // Сповіщення зникає саме.
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(""), 6000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  /* ----- Калькулятор ----- */
+
+  function updateSend(raw: string) {
+    const value = sanitizeInput(raw);
+    setAmount(value);
+    const n = parseAmount(value);
+    setReceiveAmount(
+      n === null || !rates ? "" : formatResult(sendToReceive(direction, n, rates))
+    );
+  }
+
+  function updateReceive(raw: string) {
+    const value = sanitizeInput(raw);
+    setReceiveAmount(value);
+    const n = parseAmount(value);
+    setAmount(
+      n === null || !rates ? "" : formatResult(receiveToSend(direction, n, rates))
+    );
+  }
+
+  function changeDirection(next: Direction) {
+    if (next === direction) return;
+    setDirection(next);
+    const n = parseAmount(amount);
+    setReceiveAmount(
+      n === null || !rates ? "" : formatResult(sendToReceive(next, n, rates))
+    );
+  }
+
+  /** Міняє місцями «Віддаю» та «Отримую»: що отримували — тепер віддаємо. */
+  function swapDirection() {
+    const next: Direction =
+      direction === "USDT_TO_UAH" ? "UAH_TO_USDT" : "USDT_TO_UAH";
+    const newAmount = receiveAmount;
+    setDirection(next);
+    setAmount(newAmount);
+    const n = parseAmount(newAmount);
+    setReceiveAmount(
+      n === null || !rates ? "" : formatResult(sendToReceive(next, n, rates))
+    );
+  }
+
+  const sendUnit = direction === "USDT_TO_UAH" ? "USDT" : "UAH";
+  const receiveUnit = direction === "USDT_TO_UAH" ? "UAH" : "USDT";
+  const sendNum = parseAmount(amount);
+
+  let calcMessage: { kind: "error" | "info"; text: string } | null = null;
+  let calcValid = false;
+
+  if (!rates) {
+    calcMessage = {
+      kind: "info",
+      text:
+        loadState === "error"
+          ? "Курс наразі недоступний."
+          : "Завантаження актуального курсу…",
+    };
+  } else if (amount !== "" && (sendNum === null || sendNum <= 0)) {
+    calcMessage = { kind: "error", text: "Введіть коректну суму" };
+  } else if (sendNum !== null && sendNum > MAX_AMOUNT) {
+    calcMessage = {
+      kind: "error",
+      text: `Максимальна сума — ${fmt(MAX_AMOUNT, 0)} ${sendUnit}`,
+    };
+  } else if (sendNum !== null) {
+    const usdtEquivalent =
+      direction === "USDT_TO_UAH" ? sendNum : sendNum / rates.uah_usdt;
+    if (Math.round(usdtEquivalent * 100) / 100 < MIN_USDT) {
+      const minHint =
+        direction === "UAH_TO_USDT"
+          ? ` (≈ ${fmt(Math.ceil(MIN_USDT * rates.uah_usdt * 100) / 100)} UAH)`
+          : "";
+      calcMessage = {
+        kind: "error",
+        text: `Мінімальна сума — ${MIN_USDT} USDT${minHint}`,
+      };
+    } else {
+      calcValid = true;
     }
-
-    const result =
-      direction === "USDT_TO_UAH"
-        ? num * Number(rates.usdt_uah)
-        : num / Number(rates.uah_usdt);
-
-    SetReceiveAmount(
-      result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
-    );
   }
 
-  function updateReceive(value: string) {
-    SetReceiveAmount(value);
-
-    const num = Number(value.replace(",", "."));
-
-    if (value.trim() === "" || !Number.isFinite(num) || num < 0) {
-      A("");
-      return;
-    }
-
-    const result =
-      direction === "USDT_TO_UAH"
-        ? num / Number(rates.usdt_uah)
-        : num * Number(rates.uah_usdt);
-
-    A(
-      result.toFixed(direction === "USDT_TO_UAH" ? 6 : 2)
-    );
-  }
-
-  function changeDirection(value: string) {
-    D(value);
-
-    const current = Number(amount.replace(",", ".")) || 0;
-
-    const result =
-      value === "USDT_TO_UAH"
-        ? current * Number(rates.usdt_uah)
-        : current / Number(rates.uah_usdt);
-
-    SetReceiveAmount(
-      result.toFixed(value === "USDT_TO_UAH" ? 2 : 6)
-    );
-  }
-
-  const sendNumber = Math.max(
-    0,
-    Number(amount.replace(",", ".")) || 0
-  );
-
-  const receiveNumber = Math.max(
-    0,
-    Number(receiveAmount.replace(",", ".")) || 0
-  );
-
-  function contactManager() {
-    window.open("https://t.me/soyermanager", "_blank");
-  }
+  /* ----- Адмінпанель ----- */
 
   async function saveRates() {
-    const a = Number(ra.replace(",", "."));
-    const b = Number(rb.replace(",", "."));
+    if (ratesSaving) return;
 
-    if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) {
-      N("Введіть коректні курси");
+    const a = parseAmount(rateA);
+    const b = parseAmount(rateB);
+
+    if (a === null || b === null || a <= 0 || b <= 0) {
+      setNotice("Введіть коректні курси");
       return;
     }
-
-    if (ratesSaving) return;
+    if (a >= MAX_RATE || b >= MAX_RATE) {
+      setNotice(`Курс має бути меншим за ${fmt(MAX_RATE, 0)}`);
+      return;
+    }
 
     setRatesSaving(true);
     try {
       await api("/api/admin/rates", {
         method: "PUT",
-        body: JSON.stringify({
-          usdt_uah: a,
-          uah_usdt: b,
-        }),
+        body: JSON.stringify({ usdt_uah: a, uah_usdt: b }),
       });
 
-      // Read back from the database so the UI only confirms a real save.
-      const persisted = await api("/api/rates");
+      // Читаємо назад із бази, щоб підтвердити реальне збереження.
+      const persisted = await api<Rates>("/api/rates");
       if (
         Number(persisted.usdt_uah) !== a ||
         Number(persisted.uah_usdt) !== b
@@ -221,86 +376,91 @@ export default function App() {
         throw new Error("Курси не підтверджені базою даних. Спробуйте ще раз.");
       }
 
-      R(persisted);
-      RA(String(persisted.usdt_uah));
-      RB(String(persisted.uah_usdt));
-
-      const current = Number(amount.replace(",", ".")) || 0;
-      const result =
-        direction === "USDT_TO_UAH"
-          ? current * Number(persisted.usdt_uah)
-          : current / Number(persisted.uah_usdt);
-
-      SetReceiveAmount(
-        result.toFixed(direction === "USDT_TO_UAH" ? 2 : 6)
-      );
-
-      N("Курси успішно збережено");
-    } catch (e: any) {
-      N(e.message || "Не вдалося зберегти курси");
+      setRates(persisted);
+      setRateA(String(persisted.usdt_uah));
+      setRateB(String(persisted.uah_usdt));
+      setNotice("Курси успішно збережено");
+    } catch (e) {
+      setNotice(errMsg(e, "Не вдалося зберегти курси"));
     } finally {
       setRatesSaving(false);
     }
   }
 
   async function addPromo() {
-    if (!pt.trim() || !pd.trim()) {
-      N("Заповніть назву та опис акції");
+    if (promoAdding) return;
+
+    if (!promoTitle.trim() || !promoDesc.trim()) {
+      setNotice("Заповніть назву та опис акції");
       return;
     }
 
+    setPromoAdding(true);
     try {
       await api("/api/admin/promotions", {
         method: "POST",
         body: JSON.stringify({
-          title: pt.trim(),
-          description: pd.trim(),
+          title: promoTitle.trim(),
+          description: promoDesc.trim(),
         }),
       });
 
-      PT("");
-      PD("");
-
-      P(await api("/api/promotions"));
-      N("Акцію додано");
-    } catch (e: any) {
-      N(e.message);
+      setPromoTitle("");
+      setPromoDesc("");
+      setPromos(await api<Promo[]>("/api/promotions"));
+      setNotice("Акцію додано");
+    } catch (e) {
+      setNotice(errMsg(e, "Не вдалося додати акцію"));
+    } finally {
+      setPromoAdding(false);
     }
   }
 
   async function deletePromo(id: number) {
-    if (!window.confirm("Видалити цю акцію?")) return;
+    if (deletingId !== null) return;
+    if (!(await confirmAction("Видалити цю акцію?"))) return;
 
+    setDeletingId(id);
     try {
       await api(`/api/admin/promotions/${id}`, { method: "DELETE" });
-      P(await api("/api/promotions"));
-      N("Акцію видалено");
-    } catch (e: any) {
-      N(e.message || "Не вдалося видалити акцію");
+      setPromos(await api<Promo[]>("/api/promotions"));
+      setNotice("Акцію видалено");
+    } catch (e) {
+      setNotice(errMsg(e, "Не вдалося видалити акцію"));
+    } finally {
+      setDeletingId(null);
     }
   }
+
+  /* ---------- Розмітка ---------- */
 
   return (
     <div className="app">
       <header>
-        <div className="logo">
+        <div className="logo" aria-hidden="true">
           <ArrowDownUp />
         </div>
 
-        <div>
+        <div className="brand">
           <b>
             SOYER <i>EXCHANGE</i>
           </b>
           <small>СЕРВІС ОБМІНУ</small>
         </div>
 
-        <span className="online">● ОНЛАЙН</span>
+        <span className="online">ОНЛАЙН</span>
       </header>
 
       {notice && (
-        <div className="notice" onClick={() => N("")}>
-          {notice}　×
-        </div>
+        <button
+          type="button"
+          className="notice"
+          aria-live="polite"
+          onClick={() => setNotice("")}
+        >
+          <span>{notice}</span>
+          <span aria-label="Закрити">×</span>
+        </button>
       )}
 
       {tab === "home" && (
@@ -321,18 +481,18 @@ export default function App() {
             <div className="rates">
               <div>
                 <label>USDT → UAH</label>
-                <b>{fmt(rates.usdt_uah)} ₴</b>
+                <b>{rates ? `${fmt(rates.usdt_uah)} ₴` : "—"}</b>
               </div>
 
               <div>
                 <label>UAH → USDT</label>
-                <b>{fmt(rates.uah_usdt)} ₴</b>
+                <b>{rates ? `${fmt(rates.uah_usdt)} ₴` : "—"}</b>
               </div>
             </div>
 
             <small className="hint">
               <ShieldCheck size={14} />
-              Курс орієнтовний · мінімум 5 USDT
+              Курс орієнтовний · мінімум {MIN_USDT} USDT
             </small>
           </section>
 
@@ -350,14 +510,18 @@ export default function App() {
 
             <div className="switch">
               <button
+                type="button"
                 className={direction === "USDT_TO_UAH" ? "sel" : ""}
+                aria-pressed={direction === "USDT_TO_UAH"}
                 onClick={() => changeDirection("USDT_TO_UAH")}
               >
                 USDT → UAH
               </button>
 
               <button
+                type="button"
                 className={direction === "UAH_TO_USDT" ? "sel" : ""}
+                aria-pressed={direction === "UAH_TO_USDT"}
                 onClick={() => changeDirection("UAH_TO_USDT")}
               >
                 UAH → USDT
@@ -371,16 +535,24 @@ export default function App() {
                 <input
                   value={amount}
                   inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="0"
+                  aria-label={`Сума, яку ви віддаєте (${sendUnit})`}
                   onChange={(e) => updateSend(e.target.value)}
                 />
 
-                <b>{direction === "USDT_TO_UAH" ? "USDT" : "UAH"}</b>
+                <b>{sendUnit}</b>
               </div>
             </div>
 
-            <div className="swap">
+            <button
+              type="button"
+              className="swap"
+              aria-label="Поміняти напрямок обміну"
+              onClick={swapDirection}
+            >
               <ArrowDownUp />
-            </div>
+            </button>
 
             <div className="amount receive">
               <small>Отримую</small>
@@ -389,14 +561,37 @@ export default function App() {
                 <input
                   value={receiveAmount}
                   inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="0"
+                  disabled={!rates}
+                  aria-label={`Сума, яку ви отримуєте (${receiveUnit})`}
                   onChange={(e) => updateReceive(e.target.value)}
                 />
 
-                <b>{direction === "USDT_TO_UAH" ? "UAH" : "USDT"}</b>
+                <b>{receiveUnit}</b>
               </div>
             </div>
 
-            <button className="primary" onClick={contactManager}>
+            <p
+              className={`calc-msg ${calcMessage?.kind ?? ""}`}
+              aria-live="polite"
+            >
+              {calcMessage?.text}
+            </p>
+
+            {!rates && loadState === "error" && (
+              <button type="button" className="outline" onClick={refresh}>
+                <RefreshCw size={16} />
+                Спробувати ще раз
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="primary"
+              onClick={openManager}
+              disabled={!calcValid}
+            >
               Написати менеджеру
               <ArrowRight size={17} />
             </button>
@@ -443,10 +638,12 @@ export default function App() {
                 <p>{p.description}</p>
                 {isAdmin && (
                   <button
+                    type="button"
                     className="delete-promo"
-                    onClick={() => deletePromo(Number(p.id))}
+                    disabled={deletingId !== null}
+                    onClick={() => deletePromo(p.id)}
                   >
-                    Видалити акцію
+                    {deletingId === p.id ? "Видалення…" : "Видалити акцію"}
                   </button>
                 )}
               </article>
@@ -472,33 +669,37 @@ export default function App() {
 
             <h2>{user?.name || "Користувач Telegram"}</h2>
 
-            <p>@{user?.username || "telegram"}</p>
+            {user?.username && <p>@{user.username}</p>}
 
             <p>Telegram ID: {user?.id || "—"}</p>
 
-            <button
-              className="primary"
-              onClick={() =>
-                window.open("https://t.me/soyermanager", "_blank")
-              }
-            >
+            <button type="button" className="primary" onClick={openManager}>
               Зв’язатися з менеджером
             </button>
           </section>
 
           {isAdmin && (
             <button
+              type="button"
               className="primary"
-              onClick={() => T("admin")}
+              onClick={() => setTab("admin")}
             >
               <ShieldCheck size={18} />
               Панель адміністратора
             </button>
           )}
 
-          <button className="outline" onClick={refresh}>
-            <RefreshCw size={16} />
-            Оновити дані
+          <button
+            type="button"
+            className="outline"
+            onClick={refresh}
+            disabled={loadState === "loading"}
+          >
+            <RefreshCw
+              size={16}
+              className={loadState === "loading" ? "spin" : ""}
+            />
+            {loadState === "loading" ? "Оновлення…" : "Оновити дані"}
           </button>
         </main>
       )}
@@ -517,21 +718,28 @@ export default function App() {
 
             <input
               className="text"
-              value={ra}
-              onChange={(e) => RA(e.target.value)}
+              value={rateA}
               inputMode="decimal"
+              autoComplete="off"
+              onChange={(e) => setRateA(sanitizeInput(e.target.value, 4))}
             />
 
             <label>UAH → USDT</label>
 
             <input
               className="text"
-              value={rb}
-              onChange={(e) => RB(e.target.value)}
+              value={rateB}
               inputMode="decimal"
+              autoComplete="off"
+              onChange={(e) => setRateB(sanitizeInput(e.target.value, 4))}
             />
 
-            <button className="primary" onClick={saveRates} disabled={ratesSaving}>
+            <button
+              type="button"
+              className="primary"
+              onClick={saveRates}
+              disabled={ratesSaving}
+            >
               {ratesSaving ? "Збереження…" : "Зберегти курси"}
             </button>
           </section>
@@ -542,19 +750,26 @@ export default function App() {
             <input
               className="text"
               placeholder="Назва"
-              value={pt}
-              onChange={(e) => PT(e.target.value)}
+              maxLength={100}
+              value={promoTitle}
+              onChange={(e) => setPromoTitle(e.target.value)}
             />
 
             <textarea
               className="text"
               placeholder="Опис"
-              value={pd}
-              onChange={(e) => PD(e.target.value)}
+              maxLength={1000}
+              value={promoDesc}
+              onChange={(e) => setPromoDesc(e.target.value)}
             />
 
-            <button className="primary" onClick={addPromo}>
-              Додати акцію
+            <button
+              type="button"
+              className="primary"
+              onClick={addPromo}
+              disabled={promoAdding}
+            >
+              {promoAdding ? "Додавання…" : "Додати акцію"}
             </button>
           </section>
 
@@ -563,6 +778,7 @@ export default function App() {
               <h2>Керування акціями</h2>
               <span>{promos.length} шт.</span>
             </div>
+
             {promos.length ? (
               <div className="admin-promos-list">
                 {promos.map((p) => (
@@ -572,11 +788,14 @@ export default function App() {
                       <p>{p.description}</p>
                       <small>ID: {p.id}</small>
                     </div>
+
                     <button
+                      type="button"
                       className="delete-promo"
-                      onClick={() => deletePromo(Number(p.id))}
+                      disabled={deletingId !== null}
+                      onClick={() => deletePromo(p.id)}
                     >
-                      Видалити
+                      {deletingId === p.id ? "Видалення…" : "Видалити"}
                     </button>
                   </article>
                 ))}
@@ -587,25 +806,26 @@ export default function App() {
               </div>
             )}
           </section>
-
         </main>
       )}
 
       <nav>
-        {[
-          ["home", "Головна", Home],
-          ["promos", "Акції", Gift],
-          ["profile", "Профіль", UserRound],
-        ].map(([id, label, Icon]: any) => (
-          <button
-            className={tab === id ? "active" : ""}
-            onClick={() => T(id)}
-            key={id}
-          >
-            <Icon size={19} />
-            <span>{label}</span>
-          </button>
-        ))}
+        {NAV.map(({ id, label, Icon }) => {
+          // Адмінпанель відкривається з профілю — підсвічуємо його.
+          const active = tab === id || (id === "profile" && tab === "admin");
+          return (
+            <button
+              type="button"
+              className={active ? "active" : ""}
+              aria-current={active ? "page" : undefined}
+              onClick={() => setTab(id)}
+              key={id}
+            >
+              <Icon size={19} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
