@@ -12,6 +12,6 @@ def current_user(x_telegram_init_data:str=Header(default="")):
         expected=hmac.new(secret,check.encode(),hashlib.sha256).hexdigest()
         if not hmac.compare_digest(received,expected): raise ValueError()
         return json.loads(p["user"])
-    except Exception: raise HTTPException(401,"Откройте приложение через Telegram")
+    except Exception: raise HTTPException(401,"Відкрийте застосунок через Telegram")
 def admin(u):
-    if int(u["id"]) not in ADMIN_IDS: raise HTTPException(403,"Нет доступа")
+    if int(u["id"]) not in ADMIN_IDS: raise HTTPException(403,"Немає доступу")

@@ -25,11 +25,12 @@ Required Environment Variables:
 - CORS_ORIGINS — exact frontend origin, without a trailing slash
 
 ### Frontend Static Site
+- Node.js >= 20.19 (required by Vite 8; `engines` is set in package.json). Dependency versions are pinned via `package-lock.json` — commit it.
 - Root Directory: SOYER-EXCHANGE1/frontend
 - Build Command: npm install && npm run build
 - Publish Directory: dist
 - VITE_API_URL — exact public HTTPS backend URL
-- VITE_ADMIN_IDS — comma-separated numeric Telegram user IDs
+- VITE_ADMIN_IDS — not read by the current frontend code (admin rights are decided by the backend via `ADMIN_IDS`); safe to leave as is
 
 After changing environment variables, save and redeploy the backend. On startup it initializes the database and registers /telegram/webhook with Telegram.
 

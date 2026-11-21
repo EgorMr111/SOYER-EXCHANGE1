@@ -1,5 +1,6 @@
 
 import asyncio
+import hmac
 import logging
 from contextlib import asynccontextmanager, suppress
 
@@ -31,6 +32,9 @@ from .config import (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("soyer")
+
+# Мінімальна сума обміну в USDT (для обох напрямків). Має збігатися з frontend (MIN_USDT).
+MIN_USDT = 5
 
 bot = None
 dp = None
@@ -250,9 +254,10 @@ async def telegram_webhook(request: Request):
 
     if (
         WEBHOOK_SECRET
-        and request.headers.get(
-            "X-Telegram-Bot-Api-Secret-Token"
-        ) != WEBHOOK_SECRET
+        and not hmac.compare_digest(
+            request.headers.get("X-Telegram-Bot-Api-Secret-Token", "").encode("utf-8"),
+            WEBHOOK_SECRET.encode("utf-8"),
+        )
     ):
         raise HTTPException(403, "Invalid webhook secret")
 
@@ -337,10 +342,10 @@ async def create_order(
 
     if x.direction == "USDT_TO_UAH":
 
-        if x.amount < 5:
+        if x.amount < MIN_USDT:
             raise HTTPException(
                 400,
-                "Минимум 5 USDT"
+                f"Мінімальна сума — {MIN_USDT} USDT"
             )
 
         rate = r["usdt_uah"]
@@ -353,10 +358,17 @@ async def create_order(
         received = round(x.amount / rate, 6)
         label = "UAH → USDT"
 
+        # Мінімум рахується в USDT, які клієнт отримає (так само, як у калькуляторі).
+        if round(received, 2) < MIN_USDT:
+            raise HTTPException(
+                400,
+                f"Мінімальна сума — {MIN_USDT} USDT"
+            )
+
     else:
         raise HTTPException(
             400,
-            "Неверное направление"
+            "Невірний напрямок обміну"
         )
 
     order = db.make_order(
@@ -453,7 +465,7 @@ async def change_order_status(
     if x.status not in allowed_statuses:
         raise HTTPException(
             400,
-            "Недопустимый статус"
+            "Недопустимий статус"
         )
 
     order = db.get_order(number)
@@ -461,7 +473,7 @@ async def change_order_status(
     if not order:
         raise HTTPException(
             404,
-            "Заявка не найдена"
+            "Заявку не знайдено"
         )
 
     try:
@@ -554,7 +566,7 @@ def add_promotion(
 
     return {
         "ok": True,
-        "message": "Акция добавлена"
+        "message": "Акцію додано"
     }
 
 @app.delete("/api/admin/promotions/{promo_id}")
